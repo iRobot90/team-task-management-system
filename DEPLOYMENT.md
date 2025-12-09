@@ -86,7 +86,7 @@ Add the following content (adjust values as needed):
 SECRET_KEY=your-django-secret-key-here-generate-with-openssl-rand-hex-32
 DEBUG=False
 ALLOWED_HOSTS=your-domain.com,your-server-ip
-
+USE_POSTGRES=True
 USE_POSTGRES=True
 DB_NAME=ttms_db
 DB_USER=ttms_user
@@ -102,7 +102,7 @@ Generate a secure secret key:
 openssl rand -hex 32
 ```
 
-### 4. Run Migrations
+## Run migrations and initial setup
 
 ```bash
 # Activate virtual environment
@@ -130,6 +130,7 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 
 If it works, stop it with `Ctrl+C`.
 
+<<<<<<< HEAD
 ### 6. Create Gunicorn Service
 
 ```bash
