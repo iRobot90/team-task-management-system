@@ -36,24 +36,32 @@ class TaskViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
-        """Filter tasks based on user role"""
+        """Filter tasks based on user role and query parameters"""
         user = self.request.user
         
-        # Admin can see all tasks
+        # Base queryset based on user role
         if user.is_admin:
-            return Task.objects.select_related('assignee', 'created_by').all()
-        
-        # Manager can see all tasks
-        if user.is_manager:
-            return Task.objects.select_related('assignee', 'created_by').all()
-        
-        # Member can only see tasks assigned to them
-        if user.is_member:
-            return Task.objects.select_related('assignee', 'created_by').filter(
+            queryset = Task.objects.select_related('assignee', 'created_by').all()
+        elif user.is_manager:
+            queryset = Task.objects.select_related('assignee', 'created_by').all()
+        elif user.is_member:
+            queryset = Task.objects.select_related('assignee', 'created_by').filter(
                 assignee=user
             )
+        else:
+            return Task.objects.none()
         
-        return Task.objects.none()
+        # Filter by status if provided
+        status_filter = self.request.query_params.get('status', None)
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        # Filter by assignee if provided
+        assignee_filter = self.request.query_params.get('assignee', None)
+        if assignee_filter:
+            queryset = queryset.filter(assignee_id=assignee_filter)
+        
+        return queryset
     
     def perform_create(self, serializer):
         """Set created_by when creating a task"""
