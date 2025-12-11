@@ -2,13 +2,16 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Task, Notification, Comment
+from .models import Task, Notification, Comment, Project, ActivityLog
+from django.db.models import Q
 from .serializers import (
     TaskSerializer,
     TaskCreateSerializer,
     TaskUpdateSerializer,
     NotificationSerializer,
     CommentSerializer,
+    ProjectSerializer,
+    ActivityLogSerializer,
 )
 from users.permissions import CanManageTasks, CanEditTask, CanDeleteTask, CanAssignTasks
 
@@ -44,13 +47,12 @@ class TaskViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter tasks based on user role and query parameters"""
         user = self.request.user
-        
-        # Base queryset based on user role
-        if user.is_admin:
+        role_kind = self._get_role_kind(user)
+
+        # Base queryset based on role_kind
+        if role_kind == 'admin' or role_kind == 'manager':
             queryset = Task.objects.select_related('assignee', 'created_by').all()
-        elif user.is_manager:
-            queryset = Task.objects.select_related('assignee', 'created_by').all()
-        elif user.is_member:
+        elif role_kind == 'member':
             queryset = Task.objects.select_related('assignee', 'created_by').filter(
                 assignee=user
             )
@@ -68,6 +70,36 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(assignee_id=assignee_filter)
         
         return queryset
+
+    def _get_role_kind(self, u):
+        """Return a simple role kind: 'admin' | 'manager' | 'member' | None
+
+        This centralizes heuristic mapping so views don't rely on
+        optional convenience properties that may not be present.
+        """
+        try:
+            if getattr(u, 'is_admin', False):
+                return 'admin'
+            if getattr(u, 'is_manager', False):
+                return 'manager'
+            if getattr(u, 'is_member', False):
+                return 'member'
+        except Exception:
+            # if these properties exist but error, ignore and fallback
+            pass
+
+        role = getattr(u, 'role', None)
+        if not role:
+            if getattr(u, 'is_superuser', False) or getattr(u, 'is_staff', False):
+                return 'admin'
+            return None
+
+        r = str(role).upper()
+        if 'ADMIN' in r or 'SYSTEM' in r or 'DIRECTOR' in r:
+            return 'admin'
+        if 'MANAGER' in r or 'OFFICER' in r:
+            return 'manager'
+        return 'member'
     
     def perform_create(self, serializer):
         """Set created_by when creating a task"""
@@ -138,7 +170,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         }
         
         # Add user-specific stats for members and managers (who also work on tasks)
-        if user.is_member or user.is_manager:
+        role_kind = self._get_role_kind(user)
+        if role_kind in ('member', 'manager'):
             user_tasks = queryset.filter(assignee=user)
             stats['my_total'] = user_tasks.count()
             stats['my_todo'] = user_tasks.filter(status=Task.TODO).count()
@@ -228,7 +261,47 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
             notif.save()
             return Response({"message": "Marked read"})
         except Notification.DoesNotExist:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Notification not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    """Projects CRUD with RBAC"""
+    queryset = Project.objects.select_related('manager').prefetch_related('members').all()
+    serializer_class = ProjectSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        # Admin full access, managers limited to own projects
+        if self.action in ['create', 'destroy']:
+            permission_classes = [IsAuthenticated, CanManageTasks]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [p() for p in permission_classes]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_admin:
+            return Project.objects.all()
+        if user.is_manager:
+            return Project.objects.filter(Q(manager=user) | Q(members=user)).distinct()
+        # members see projects they are assigned to
+        return Project.objects.filter(members=user)
+
+
+class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ActivityLog.objects.all()
+    serializer_class = ActivityLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_admin:
+            return ActivityLog.objects.all()
+        if user.is_manager:
+            # manager sees logs for their team: actions where user is manager or members
+            return ActivityLog.objects.filter(Q(user__in=user.projects.values_list('members', flat=True)) | Q(user=user))
+        # members see own logs
+        return ActivityLog.objects.filter(user=user)
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def mark_all_read(self, request):

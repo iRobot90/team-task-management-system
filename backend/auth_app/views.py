@@ -19,11 +19,9 @@ class RegisterView(generics.CreateAPIView):
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        # Validate without raising so we can log validation errors for debugging
-        if not serializer.is_valid():
-            # Log validation errors to help diagnose 400 responses
-            logger.debug('Registration validation errors: %s', serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Validate and let DRF raise a proper ValidationError which will
+        # produce a standard 400 response with serializer.errors.
+        serializer.is_valid(raise_exception=True)
 
         user = serializer.save()
         

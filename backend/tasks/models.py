@@ -122,3 +122,41 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.author} on {self.task}"
+
+
+class Project(models.Model):
+    """Project model grouping tasks and members"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    manager = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_projects'
+    )
+    members = models.ManyToManyField(User, related_name='projects', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
+class ActivityLog(models.Model):
+    """Activity log for auditing actions"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=200)
+    model = models.CharField(max_length=100, blank=True)
+    object_id = models.CharField(max_length=100, blank=True)
+    detail = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.created_at.isoformat()} - {self.user} - {self.action}"
