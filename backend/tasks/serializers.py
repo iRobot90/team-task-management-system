@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Task, Notification, Comment
+from .models import Project, ActivityLog
 from users.serializers import UserSerializer
 
 
@@ -74,4 +75,22 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = ["id", "task", "author", "author_detail", "content", "created_at"]
         read_only_fields = ["id", "created_at", "author", "task"]
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    manager_detail = UserSerializer(source='manager', read_only=True)
+
+    class Meta:
+        model = Project
+        fields = ["id", "name", "description", "start_date", "end_date", "manager", "manager_detail", "members", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    user_detail = UserSerializer(source='user', read_only=True)
+
+    class Meta:
+        model = ActivityLog
+        fields = ["id", "user", "user_detail", "action", "model", "object_id", "detail", "created_at"]
+        read_only_fields = ["id", "created_at"]
 

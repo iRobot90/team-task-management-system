@@ -71,8 +71,6 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: newUser };
     } catch (error) {
       const data = error.response?.data;
-      // Preserve a user-friendly message while also returning structured
-      // field errors so callers can render them per-input.
       let message = 'Registration failed';
       if (typeof data === 'string') {
         message = data;
@@ -83,7 +81,6 @@ export const AuthProvider = ({ children }) => {
       return {
         success: false,
         error: message,
-        errors: typeof data === 'object' && data !== null ? data : null,
       };
     }
   };

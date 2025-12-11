@@ -6,6 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import NotificationBell from './NotificationBell';
 import './Layout.css';
+import NotificationBell from './NotificationBell';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -27,13 +28,12 @@ const Layout = ({ children }) => {
           <Link to="/" className="brand">
             TTMS
           </Link>
-
-          <div className="navbar-menu">
-            <Link
-              to="/dashboard"
-              className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}
-            >
-              Dashboard
+          <Link to="/tasks" className={`nav-link ${isActive('/tasks')}`}>
+            Tasks
+          </Link>
+          {user?.role === USER_ROLES.ADMIN && (
+            <Link to="/users" className={`nav-link ${isActive('/users')}`}>
+              Users
             </Link>
 
             <Link

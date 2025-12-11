@@ -10,6 +10,9 @@ This guide provides step-by-step instructions for deploying the TTMS application
 - Basic knowledge of Linux commands
  - Basic knowledge of Linux commands
  - Server credentials provided by administrator
+- Basic knowledge of Linux commands
+ - Basic knowledge of Linux commands
+ - Server credentials provided by administrator
 
 
 ## Server Setup
@@ -124,6 +127,8 @@ python manage.py collectstatic --noinput
 ```
 
 ### Test Django Application
+=======
+### Test Django Application
 
 ```bash
 # Test with Gunicorn
@@ -133,6 +138,18 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 If it works, stop it with `Ctrl+C`.
 
 ### 7. Create Gunicorn Service
+
+### 7. Create Gunicorn Service
+
+
+
+
+
+
+
+
+
+
 
 ```bash
 # Create systemd service file
@@ -456,4 +473,5 @@ For issues or questions, refer to the main README.md or contact the development 
 - [ ] Frontend connects to backend
 - [ ] All features tested
 - [ ] API documentation accessible at /api/docs/
+
 

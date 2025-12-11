@@ -3,8 +3,7 @@ import { usersAPI } from '../api/users';
 import { rolesAPI } from '../api/roles';
 import Loading from '../components/Loading';
 import Modal from '../components/Modal';
-import { USER_ROLE_LABELS, USER_ROLES } from '../utils/constants';
-import { useAuth } from '../context/AuthContext';
+import { USER_ROLE_LABELS } from '../utils/constants';
 import './Users.css';
 
 const Users = () => {
@@ -226,7 +225,6 @@ const Users = () => {
                       className="role-select"
                       value={user.role || ''}
                       onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                      disabled={!userCanEditRole(user.role)}
                     >
                       <option value="">No Role</option>
                       {roles.map((role) => (

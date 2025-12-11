@@ -89,3 +89,15 @@ class CanDeleteTask(permissions.BasePermission):
         # Only Admin and Manager can delete tasks
         return request.user.is_admin or request.user.is_manager
 
+
+class IsProjectManagerOrAdmin(permissions.BasePermission):
+    """Allow access to project managers or admins"""
+
+    def has_object_permission(self, request, view, obj):
+        # obj is expected to be a Project
+        if request.user.is_admin:
+            return True
+        if request.user.is_manager and getattr(obj, 'manager', None) == request.user:
+            return True
+        return False
+
