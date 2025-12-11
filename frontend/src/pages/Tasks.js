@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { tasksAPI } from '../api/tasks';
 import { usersAPI } from '../api/users';
-<<<<<<< HEAD
 import { useAuth } from '../context/AuthContext';
-=======
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
 import Loading from '../components/Loading';
 import Modal from '../components/Modal';
 import { TASK_STATUS, TASK_STATUS_LABELS, USER_ROLES } from '../utils/constants';
 import './Tasks.css';
-import { useAuth } from '../context/AuthContext';
-import { USER_ROLES } from '../utils/constants';
 
 const Tasks = () => {
   const { user } = useAuth();
@@ -18,13 +13,21 @@ const Tasks = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-<<<<<<< HEAD
   const [success, setSuccess] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterAssignee, setFilterAssignee] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [commentsOpen, setCommentsOpen] = useState({});
+  const [commentsData, setCommentsData] = useState({});
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+  const [creating, setCreating] = useState(false);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -33,41 +36,15 @@ const Tasks = () => {
     assignee: '',
   });
 
-  const canManageTasks = user?.role_name === USER_ROLES.ADMIN || user?.role_name === USER_ROLES.MANAGER;
+  const canManageTasks = user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.MANAGER;
 
   useEffect(() => {
     fetchTasks();
     if (canManageTasks) {
       fetchUsers();
-    }
-  }, [filterStatus, filterAssignee]);
-=======
-  const [filter, setFilter] = useState('all');
-  const [members, setMembers] = useState([]);
-  const [assignError, setAssignError] = useState('');
-  const [assignSuccess, setAssignSuccess] = useState('');
-  const { user } = useAuth();
-  const [updatingId, setUpdatingId] = useState(null);
-  const [commentDrafts, setCommentDrafts] = useState({});
-  const [commentsOpen, setCommentsOpen] = useState({});
-  const [commentsData, setCommentsData] = useState({});
-  const [createError, setCreateError] = useState('');
-  const [createSuccess, setCreateSuccess] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    deadline: '',
-    assignee: '',
-  });
-
-  useEffect(() => {
-    fetchTasks();
-    if (user?.role === USER_ROLES.MANAGER || user?.role === USER_ROLES.ADMIN) {
       fetchMembers();
     }
-  }, [filter, user]);
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
+  }, [filterStatus, filterAssignee]);
 
   const fetchTasks = async () => {
     try {
@@ -106,49 +83,54 @@ const Tasks = () => {
   };
 
   const handleAssign = async (taskId, assigneeId) => {
-    setAssignError('');
-    setAssignSuccess('');
+    setError('');
+    setSuccess('');
     try {
       if (!assigneeId) {
         await tasksAPI.unassign(taskId);
-        setAssignSuccess('Task unassigned');
+        setSuccess('Task unassigned');
       } else {
         await tasksAPI.assign(taskId, assigneeId);
-        setAssignSuccess('Task assigned successfully');
+        setSuccess('Task assigned successfully');
       }
       fetchTasks();
       fetchMembers();
     } catch (err) {
-      setAssignError(
-        err.response?.data?.error || 'Failed to assign task'
-      );
+      setError(err.response?.data?.error || 'Failed to assign task');
     }
   };
 
   const handleCreateTask = async () => {
-    setCreateError('');
-    setCreateSuccess('');
-    if (!newTask.title.trim()) {
-      setCreateError('Title is required');
+    setError('');
+    setSuccess('');
+    if (!formData.title.trim()) {
+      setError('Title is required');
       return;
     }
     setCreating(true);
     try {
       const payload = {
-        title: newTask.title,
-        description: newTask.description,
-        status: 'todo',
-        assignee: newTask.assignee || null,
+        title: formData.title,
+        description: formData.description,
+        status: formData.status || 'todo',
+        assignee: formData.assignee || null,
       };
-      if (newTask.deadline) {
-        payload.deadline = new Date(newTask.deadline).toISOString();
+      if (formData.deadline) {
+        payload.deadline = new Date(formData.deadline).toISOString();
       }
       await tasksAPI.create(payload);
-      setCreateSuccess('Task created');
-      setNewTask({ title: '', description: '', deadline: '', assignee: '' });
+      setSuccess('Task created successfully');
+      setFormData({
+        title: '',
+        description: '',
+        status: TASK_STATUS.TODO,
+        deadline: '',
+        assignee: ''
+      });
+      setShowCreateModal(false);
       fetchTasks();
     } catch (err) {
-      setCreateError(err.response?.data?.error || 'Failed to create task');
+      setError(err.response?.data?.error || 'Failed to create task');
     } finally {
       setCreating(false);
     }
@@ -301,7 +283,6 @@ const Tasks = () => {
 
   return (
     <div className="tasks-page">
-<<<<<<< HEAD
       <div className="tasks-header">
         <h1>Tasks</h1>
         {canManageTasks && (
@@ -360,23 +341,6 @@ const Tasks = () => {
                   <span>Assigned to: {task.assignee_detail.email}</span>
                 ) : (
                   <span className="unassigned">Unassigned</span>
-=======
-      <div className="tasks-grid">
-        <aside className="tasks-sidebar">
-          <h3>Filters</h3>
-          <div className="filter-buttons vertical">
-            {statusFilterButtons.map((btn) => (
-              <button
-                key={btn.key}
-                className={filter === btn.key ? 'active' : ''}
-                onClick={() => setFilter(btn.key)}
-              >
-                {btn.label}
-                {btn.key !== 'all' && (
-                  <span className="pill-count">
-                    {statusCounts[btn.key] || 0}
-                  </span>
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
                 )}
               </button>
             ))}
@@ -412,7 +376,6 @@ const Tasks = () => {
                 {Object.keys(productivity).length === 0 && (
                   <li className="muted">No assignments yet</li>
                 )}
-<<<<<<< HEAD
               </div>
               <div className="task-actions">
                 {(canManageTasks || task.assignee === user?.id) && (
@@ -446,9 +409,6 @@ const Tasks = () => {
                   </>
                 )}
               </div>
-=======
-              </ul>
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
             </div>
           )}
 
