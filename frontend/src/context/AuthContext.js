@@ -70,9 +70,17 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user: newUser };
     } catch (error) {
+      const data = error.response?.data;
+      let message = 'Registration failed';
+      if (typeof data === 'string') {
+        message = data;
+      } else if (data && typeof data === 'object') {
+        const firstError = Object.values(data).flat().find(Boolean);
+        if (firstError) message = firstError;
+      }
       return {
         success: false,
-        error: error.response?.data || 'Registration failed',
+        error: message,
       };
     }
   };

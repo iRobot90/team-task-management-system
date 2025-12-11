@@ -7,14 +7,14 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from auth_app.views import RegisterView, login_view, logout_view
-from users.views import UserViewSet, RoleViewSet
-from tasks.views import TaskViewSet
+from users.views import UserViewSet
+from tasks.views import TaskViewSet, NotificationViewSet
 
 # Create router and register viewsets
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
-router.register(r'roles', RoleViewSet, basename='role')
 router.register(r'tasks', TaskViewSet, basename='task')
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_ROLES } from '../utils/constants';
 import './Layout.css';
+import NotificationBell from './NotificationBell';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -31,7 +32,7 @@ const Layout = ({ children }) => {
           <Link to="/tasks" className={`nav-link ${isActive('/tasks')}`}>
             Tasks
           </Link>
-          {user?.role_name === USER_ROLES.ADMIN && (
+          {user?.role === USER_ROLES.ADMIN && (
             <Link to="/users" className={`nav-link ${isActive('/users')}`}>
               Users
             </Link>

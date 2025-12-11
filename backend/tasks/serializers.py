@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task
+from .models import Task, Notification, Comment
 from users.serializers import UserSerializer
 
 
@@ -44,4 +44,34 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ['title', 'description', 'status', 'deadline', 'assignee']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Serializer for task notifications"""
+
+    task_title = serializers.CharField(source="task.title", read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "task",
+            "task_title",
+            "type",
+            "message",
+            "is_read",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    """Serializer for task comments"""
+
+    author_detail = UserSerializer(source="author", read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ["id", "task", "author", "author_detail", "content", "created_at"]
+        read_only_fields = ["id", "created_at", "author", "task"]
 

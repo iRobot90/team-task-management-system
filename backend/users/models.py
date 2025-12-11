@@ -1,83 +1,102 @@
-from django.contrib.auth.models import AbstractUser
+import uuid
+
+from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 
-
-class Role(models.Model):
-    """Role model for RBAC"""
-    ADMIN = 'admin'
-    MANAGER = 'manager'
-    MEMBER = 'member'
-    
-    ROLE_CHOICES = [
-        (ADMIN, 'Admin'),
-        (MANAGER, 'Manager'),
-        (MEMBER, 'Member'),
-    ]
-    
-    name = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'roles'
-        ordering = ['name']
-    
-    def __str__(self):
-        return self.get_name_display()
+from .mixins import RoleFlagsMixin
 
 
-class User(AbstractUser):
-    """Custom User model with role-based access control"""
+class User(RoleFlagsMixin, AbstractUser):
+    class Role(models.TextChoices):
+        ADMIN = "ADMIN", "Admin"
+        MANAGER = "MANAGER", "Manager"
+        MEMBER = "MEMBER", "Member"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    role = models.ForeignKey(
-        Role,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='users'
+    role = models.CharField(
+        max_length=20, choices=Role.choices, default=Role.MEMBER
     )
-    phone = models.CharField(max_length=20, blank=True)
+    profile_image = models.ImageField(
+        upload_to="users/profile_images/", blank=True, null=True
+    )
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    middle_name = models.CharField(max_length=150, blank=True, null=True)
+    groups = models.ManyToManyField(
+        Group,
+        related_name="custom_user_set",
+        blank=True,
+        help_text="The groups this user belongs to.",
+        related_query_name="user",
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        related_name="custom_user_set",
+        blank=True,
+        help_text="Specific permissions for this user.",
+        related_query_name="user",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username']
-    
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"]
+
     class Meta:
-        db_table = 'users'
-        ordering = ['-created_at']
+        db_table = "users"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['email']),
-            models.Index(fields=['role']),
+            models.Index(fields=["email"]),
+            models.Index(fields=["role"]),
         ]
-    
+
     def __str__(self):
-        return self.email
-    
-    @property
-    def is_admin(self):
-        """Check if user is admin"""
-        return self.role and self.role.name == Role.ADMIN
-    
-    @property
-    def is_manager(self):
-        """Check if user is manager"""
-        return self.role and self.role.name == Role.MANAGER
-    
-    @property
-    def is_member(self):
-        """Check if user is member"""
-        return self.role and self.role.name == Role.MEMBER
-    
-    def can_manage_users(self):
-        """Check if user can manage other users"""
-        return self.is_admin
-    
-    def can_manage_tasks(self):
-        """Check if user can create/edit/delete tasks"""
-        return self.is_admin or self.is_manager
-    
-    def can_assign_tasks(self):
-        """Check if user can assign tasks to others"""
-        return self.is_admin or self.is_manager
+        return f"{self.username} ({self.role})"
+
+
+class AdminProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="admin_profile"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - Admin Profile"
+
+    class Meta:
+        verbose_name = "Admin Profile"
+        verbose_name_plural = "Admin Profiles"
+
+
+class ManagerProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="manager_profile"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - Manager Profile"
+
+    class Meta:
+        verbose_name = "Manager Profile"
+        verbose_name_plural = "Manager Profiles"
+
+
+class MemberProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="member_profile"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - Member Profile"
+
+    class Meta:
+        verbose_name = "Member Profile"
+        verbose_name_plural = "Member Profiles"
