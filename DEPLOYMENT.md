@@ -11,6 +11,7 @@ This guide provides step-by-step instructions for deploying the TTMS application
  - Basic knowledge of Linux commands
  - Server credentials provided by administrator
 
+
 ## Server Setup
 
 ### 1. Initial Server Configuration
@@ -131,7 +132,6 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 
 If it works, stop it with `Ctrl+C`.
 
-<<<<<<< HEAD
 ### 7. Create Gunicorn Service
 
 ```bash
@@ -433,7 +433,6 @@ crontab -e
 # Add: 0 2 * * * /home/ttms/backup.sh
 ```
 
-<<<<<<< HEAD
 ## Demo Credentials
 
 After deployment, you can create demo users using Django admin or the API:
@@ -446,7 +445,6 @@ After deployment, you can create demo users using Django admin or the API:
 
 For issues or questions, refer to the main README.md or contact the development team.
 
-=======
 ## Post-Deployment Checklist
 
 - [ ] Backend accessible via HTTPS
@@ -458,4 +456,4 @@ For issues or questions, refer to the main README.md or contact the development 
 - [ ] Frontend connects to backend
 - [ ] All features tested
 - [ ] API documentation accessible at /api/docs/
->>>>>>> 24df254 (docs: add deployment guide and demo credentials for DigitalOcean VPS)
+
