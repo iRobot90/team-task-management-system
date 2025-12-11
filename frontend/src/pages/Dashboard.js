@@ -49,7 +49,6 @@ const Dashboard = () => {
   }
 
   const isManager = user?.role === USER_ROLES.MANAGER;
-  const isMember = user?.role === USER_ROLES.MEMBER;
 
   return (
     <div className="dashboard">

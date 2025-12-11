@@ -7,7 +7,7 @@ import { USER_ROLE_LABELS } from '../utils/constants';
 import './Profile.css';
 
 const Profile = () => {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

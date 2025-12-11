@@ -1,30 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { tasksAPI } from '../api/tasks';
 import { usersAPI } from '../api/users';
-<<<<<<< HEAD
+import { notificationsAPI } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
-=======
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
 import Loading from '../components/Loading';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { webSocketService } from '../services/websocket';
 import Modal from '../components/Modal';
 import { TASK_STATUS, TASK_STATUS_LABELS, USER_ROLES } from '../utils/constants';
+import { 
+  Plus, 
+  ListChecks, 
+  Users, 
+  Filter, 
+  MessageSquare, 
+  Calendar, 
+  User, 
+  Trash2, 
+  Edit, 
+  ChevronDown, 
+  ChevronUp 
+} from 'lucide-react';
 import './Tasks.css';
-import { useAuth } from '../context/AuthContext';
-import { USER_ROLES } from '../utils/constants';
 
 const Tasks = () => {
+  // State declarations
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-<<<<<<< HEAD
   const [success, setSuccess] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterAssignee, setFilterAssignee] = useState('all');
+  const [updatingId, setUpdatingId] = useState(null);
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [commentsOpen, setCommentsOpen] = useState({});
+  const [commentsData, setCommentsData] = useState({});
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterAssignee, setFilterAssignee] = useState('all');
+  // Notification state is now handled in NotificationBell component
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -32,63 +50,110 @@ const Tasks = () => {
     deadline: '',
     assignee: '',
   });
+  const canManageTasks = user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.MANAGER;
 
-  const canManageTasks = user?.role_name === USER_ROLES.ADMIN || user?.role_name === USER_ROLES.MANAGER;
+  // Calculate task counts by status
+  const taskCounts = tasks.reduce(
+    (acc, task) => {
+      acc.total++;
+      acc[task.status] = (acc[task.status] || 0) + 1;
+      return acc;
+    },
+    { total: 0, [TASK_STATUS.TODO]: 0, [TASK_STATUS.IN_PROGRESS]: 0, [TASK_STATUS.DONE]: 0 }
+  );
 
-  useEffect(() => {
-    fetchTasks();
-    if (canManageTasks) {
-      fetchUsers();
-    }
-  }, [filterStatus, filterAssignee]);
-=======
-  const [filter, setFilter] = useState('all');
-  const [members, setMembers] = useState([]);
-  const [assignError, setAssignError] = useState('');
-  const [assignSuccess, setAssignSuccess] = useState('');
-  const { user } = useAuth();
-  const [updatingId, setUpdatingId] = useState(null);
-  const [commentDrafts, setCommentDrafts] = useState({});
-  const [commentsOpen, setCommentsOpen] = useState({});
-  const [commentsData, setCommentsData] = useState({});
-  const [createError, setCreateError] = useState('');
-  const [createSuccess, setCreateSuccess] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    deadline: '',
-    assignee: '',
+  // Filter tasks based on selected filters
+  const filteredTasks = tasks.filter((task) => {
+    const statusMatch = filterStatus === 'all' || task.status === filterStatus;
+    const assigneeMatch = filterAssignee === 'all' || task.assignee === filterAssignee;
+    return statusMatch && assigneeMatch;
   });
-
-  useEffect(() => {
-    fetchTasks();
-    if (user?.role === USER_ROLES.MANAGER || user?.role === USER_ROLES.ADMIN) {
-      fetchMembers();
-    }
-  }, [filter, user]);
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
-
-  const fetchTasks = async () => {
+  // Fetch data function
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const params = {};
-      if (filterStatus !== 'all') params.status = filterStatus;
-      if (filterAssignee !== 'all') params.assignee = filterAssignee;
-      const data = await tasksAPI.getAll(params);
-      setTasks(Array.isArray(data.results) ? data.results : data);
+      const tasksData = await tasksAPI.getAll();
+      setTasks(Array.isArray(tasksData.results) ? tasksData.results : tasksData);
+      
+      if (canManageTasks) {
+        const [usersData, membersData] = await Promise.all([
+          usersAPI.getAll(),
+          usersAPI.getAll({ role: USER_ROLES.MEMBER })
+        ]);
+        
+        setUsers(Array.isArray(usersData.results) ? usersData.results : usersData);
+        setMembers(Array.isArray(membersData.results) ? membersData.results : membersData);
+      }
     } catch (err) {
-      setError('Failed to load tasks');
-      console.error('Error fetching tasks:', err);
+      setError('Failed to load data');
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [canManageTasks]);
+  // Fetch data on component mount
+  // Setup WebSocket connection and notifications
+  useEffect(() => {
+    fetchData();
+    
+    // Connect to WebSocket
+    if (user?.token) {
+      webSocketService.connect(user.token);
+      
+      // Handle incoming notifications
+      const handleNotification = (data) => {
+        if (data.type === 'task_assigned' || data.type === 'task_updated') {
+          // Show toast notification
+          toast.info(data.message, {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+          
+          // Refresh tasks if needed
+          if (data.should_refresh) {
+            fetchData();
+          }
+        }
+      };
+      
+      const unsubscribe = webSocketService.onNotification(handleNotification);
+      
+      // Cleanup on unmount
+      return () => {
+        unsubscribe();
+        webSocketService.disconnect();
+      };
+    }
+  }, [fetchData, user?.token]);
+  
+  if (loading) return <Loading message="Loading tasks..." />;
+
+  // Handle task status change
   const handleStatusChange = async (taskId, status) => {
     setUpdatingId(taskId);
     try {
+      const task = tasks.find(t => t.id === taskId);
       await tasksAPI.update(taskId, { status });
-      await fetchTasks();
+      
+      // Emit notification for status change
+      if (task) {
+        const message = `Task "${task.title}" status changed to ${TASK_STATUS_LABELS[status]}`;
+        await notificationsAPI.create({
+          type: 'task_updated',
+          message,
+          recipient: task.assignee,
+          task: taskId,
+        });
+      }
+      
+      setTasks(tasks.map(task =>
+        task.id === taskId ? { ...task, status } : task
+      ));
+      setSuccess('Task status updated');
     } catch (err) {
       setError('Failed to update task status');
     } finally {
@@ -96,530 +161,411 @@ const Tasks = () => {
     }
   };
 
-  const fetchMembers = async () => {
+  // Toggle comments section
+const toggleComments = async (taskId) => {
+  const isOpen = !commentsOpen[taskId];
+  setCommentsOpen({ ...commentsOpen, [taskId]: isOpen });
+  
+  if (isOpen && !commentsData[taskId]) {
     try {
-      const data = await usersAPI.getAll({ role: USER_ROLES.MEMBER });
-      setMembers(Array.isArray(data.results) ? data.results : data);
+      const comments = await tasksAPI.listComments(taskId);
+      setCommentsData({ ...commentsData, [taskId]: comments });
     } catch (err) {
-      console.error('Error fetching members', err);
+      setError('Failed to load comments');
     }
-  };
-
-  const handleAssign = async (taskId, assigneeId) => {
-    setAssignError('');
-    setAssignSuccess('');
-    try {
-      if (!assigneeId) {
-        await tasksAPI.unassign(taskId);
-        setAssignSuccess('Task unassigned');
-      } else {
-        await tasksAPI.assign(taskId, assigneeId);
-        setAssignSuccess('Task assigned successfully');
-      }
-      fetchTasks();
-      fetchMembers();
-    } catch (err) {
-      setAssignError(
-        err.response?.data?.error || 'Failed to assign task'
-      );
-    }
-  };
-
-  const handleCreateTask = async () => {
-    setCreateError('');
-    setCreateSuccess('');
-    if (!newTask.title.trim()) {
-      setCreateError('Title is required');
-      return;
-    }
-    setCreating(true);
-    try {
-      const payload = {
-        title: newTask.title,
-        description: newTask.description,
-        status: 'todo',
-        assignee: newTask.assignee || null,
-      };
-      if (newTask.deadline) {
-        payload.deadline = new Date(newTask.deadline).toISOString();
-      }
-      await tasksAPI.create(payload);
-      setCreateSuccess('Task created');
-      setNewTask({ title: '', description: '', deadline: '', assignee: '' });
-      fetchTasks();
-    } catch (err) {
-      setCreateError(err.response?.data?.error || 'Failed to create task');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const toggleComments = async (taskId) => {
-    const open = commentsOpen[taskId];
-    setCommentsOpen({ ...commentsOpen, [taskId]: !open });
-    if (!open) {
-      const data = await tasksAPI.listComments(taskId);
-      setCommentsData({ ...commentsData, [taskId]: data });
-    }
-  };
-
-  const handleAddComment = async (taskId) => {
-    const content = commentDrafts[taskId];
-    if (!content) return;
+  }
+};
+// Add a new comment
+const handleAddComment = async (taskId) => {
+  const content = commentDrafts[taskId]?.trim();
+  if (!content) return;
+  try {
     await tasksAPI.addComment(taskId, content);
-    const data = await tasksAPI.listComments(taskId);
-    setCommentsData({ ...commentsData, [taskId]: data });
+    const updatedComments = await tasksAPI.listComments(taskId);
+    setCommentsData({ ...commentsData, [taskId]: updatedComments });
     setCommentDrafts({ ...commentDrafts, [taskId]: '' });
-  };
+  } catch (err) {
+    setError('Failed to add comment');
+  }
+};
+// Handle form input changes
+const handleChange = (e) => {
+  const { name, value } = e.target;
+  setFormData(prev => ({ ...prev, [name]: value }));
+};
 
-  const fetchUsers = async () => {
-    try {
-      const data = await usersAPI.getAll();
-      setUsers(Array.isArray(data.results) ? data.results : data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-    }
-  };
+// Reset form data
+const resetForm = () => {
+  setFormData({
+    title: '',
+    description: '',
+    status: TASK_STATUS.TODO,
+    deadline: '',
+    assignee: '',
+  });
+};
 
-  const handleCreate = () => {
-    setFormData({
-      title: '',
-      description: '',
-      status: TASK_STATUS.TODO,
-      deadline: '',
-      assignee: '',
-    });
-    setSelectedTask(null);
-    setShowCreateModal(true);
-  };
+// Handle modal close
+const handleCloseCreateModal = () => {
+  resetForm();
+  setShowCreateModal(false);
+  setShowEditModal(false);
+  setError('');
+  setSuccess('');
+};
 
-  const handleEdit = (task) => {
-    setFormData({
-      title: task.title,
-      description: task.description || '',
-      status: task.status,
-      deadline: task.deadline ? task.deadline.split('T')[0] : '',
-      assignee: task.assignee || '',
-    });
-    setSelectedTask(task);
-    setShowEditModal(true);
-  };
-
-  const handleDelete = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) {
-      return;
-    }
-
-    try {
-      await tasksAPI.delete(taskId);
-      setSuccess('Task deleted successfully');
-      fetchTasks();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Failed to delete task');
-      console.error('Error deleting task:', err);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    try {
-      const taskData = {
-        ...formData,
-        deadline: formData.deadline || null,
-        assignee: formData.assignee || null,
-      };
-
-      if (selectedTask) {
-        await tasksAPI.update(selectedTask.id, taskData);
-        setSuccess('Task updated successfully');
-      } else {
-        await tasksAPI.create(taskData);
-        setSuccess('Task created successfully');
-      }
-
-      setShowCreateModal(false);
-      setShowEditModal(false);
-      setSelectedTask(null);
-      fetchTasks();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save task');
-      console.error('Error saving task:', err);
-    }
-  };
-
-  const handleAssign = async (taskId, assigneeId) => {
-    try {
-      await tasksAPI.assign(taskId, assigneeId);
-      setSuccess('Task assigned successfully');
-      fetchTasks();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError('Failed to assign task');
-      console.error('Error assigning task:', err);
-    }
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  if (loading) {
-    return <Loading message="Loading tasks..." />;
+// Handle form submission
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Basic validation
+  if (!formData.title.trim()) {
+    setError('Title is required');
+    return;
   }
 
-  const statusCounts = tasks.reduce(
-    (acc, t) => {
-      acc.total += 1;
-      acc[t.status] = (acc[t.status] || 0) + 1;
-      return acc;
-    },
-    { total: 0, todo: 0, in_progress: 0, done: 0 }
-  );
+  try {
+    const taskData = {
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      status: formData.status,
+      deadline: formData.deadline || null,
+      assignee: formData.assignee || null,
+    };
 
-  const productivity = tasks.reduce((acc, t) => {
-    const key = t.assignee_detail?.email || 'Unassigned';
-    acc[key] = acc[key] || { total: 0, done: 0, in_progress: 0, todo: 0 };
-    acc[key].total += 1;
-    acc[key][t.status] += 1;
-    return acc;
-  }, {});
+    if (selectedTask) {
+      const updatedTask = await tasksAPI.update(selectedTask.id, taskData);
+      setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+      setSuccess('Task updated successfully');
+      setShowEditModal(false);
+    } else {
+      const newTask = await tasksAPI.create(taskData);
+      setTasks([newTask, ...tasks]);
+      setSuccess('Task created successfully');
+      handleCloseCreateModal();
+    }
+  } catch (err) {
+    console.error('Error submitting task:', err);
+    setError(err.response?.data?.error || 'Failed to save task');
+  }
+};
 
-  const statusFilterButtons = [
-    { key: 'all', label: 'All' },
-    { key: 'todo', label: 'Todo' },
-    { key: 'in_progress', label: 'In Progress' },
-    { key: 'done', label: 'Done' },
-  ];
+// Handle task edit
+const handleEdit = (task) => {
+  setFormData({
+    title: task.title,
+    description: task.description || '',
+    status: task.status,
+    deadline: task.deadline ? task.deadline.split('T')[0] : '',
+    assignee: task.assignee || '',
+  });
+  setSelectedTask(task);
+  setShowEditModal(true);
+};
+
+// Handle task assignment
+const handleAssign = async (taskId, assigneeId) => {
+  try {
+    const task = tasks.find(t => t.id === taskId);
+    
+    if (assigneeId) {
+      await tasksAPI.assign(taskId, assigneeId);
+      
+      // Emit notification for assignment
+      if (task) {
+        const message = `You've been assigned to task: ${task.title}`;
+        await notificationsAPI.create({
+          type: 'task_assigned',
+          message,
+          recipient: assigneeId,
+          task: taskId,
+        });
+      }
+    } else {
+      await tasksAPI.unassign(taskId);
+    }
+    setTasks(tasks.map(task => task.id === taskId ? { ...task, assignee: assigneeId } : task));
+    setSuccess('Task assigned successfully');
+  } catch (err) {
+    setError('Failed to assign task');
+  }
+};
+
+// Handle task deletion
+const handleDelete = async (taskId) => {
+  if (window.confirm('Are you sure you want to delete this task?')) {
+    try {
+      await tasksAPI.delete(taskId);
+      setTasks(tasks.filter(t => t.id !== taskId));
+      setSuccess('Task deleted successfully');
+    } catch (err) {
+      setError('Failed to delete task');
+    }
+  }
+};
+
 
   return (
     <div className="tasks-page">
-<<<<<<< HEAD
-      <div className="tasks-header">
-        <h1>Tasks</h1>
-        {canManageTasks && (
-          <button className="btn-create" onClick={handleCreate}>
-            + Create Task
-          </button>
-        )}
-      </div>
-
-      <div className="tasks-filters">
-        <div className="filter-group">
-          <label>Status:</label>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">All</option>
-            <option value={TASK_STATUS.TODO}>Todo</option>
-            <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
-            <option value={TASK_STATUS.DONE}>Done</option>
-          </select>
-        </div>
-
-        {canManageTasks && (
-          <div className="filter-group">
-            <label>Assignee:</label>
-            <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
-              <option value="all">All</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.email}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-
-      <div className="tasks-list">
-        {tasks.length === 0 ? (
-          <div className="empty-state">No tasks found</div>
-        ) : (
-          tasks.map((task) => (
-            <div key={task.id} className="task-card">
-              <div className="task-header">
-                <h3>{task.title}</h3>
-                <span className={`status-badge status-${task.status}`}>
-                  {TASK_STATUS_LABELS[task.status] || task.status}
-                </span>
-              </div>
-              {task.description && (
-                <p className="task-description">{task.description}</p>
-              )}
-              <div className="task-meta">
-                {task.assignee_detail ? (
-                  <span>Assigned to: {task.assignee_detail.email}</span>
-                ) : (
-                  <span className="unassigned">Unassigned</span>
-=======
-      <div className="tasks-grid">
+      <div className="tasks-container">
+        {/* Sidebar */}
         <aside className="tasks-sidebar">
-          <h3>Filters</h3>
-          <div className="filter-buttons vertical">
-            {statusFilterButtons.map((btn) => (
-              <button
-                key={btn.key}
-                className={filter === btn.key ? 'active' : ''}
-                onClick={() => setFilter(btn.key)}
-              >
-                {btn.label}
-                {btn.key !== 'all' && (
-                  <span className="pill-count">
-                    {statusCounts[btn.key] || 0}
-                  </span>
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
-                )}
+          <div className="sidebar-header">
+            <h2>Task Manager</h2>
+            {canManageTasks && (
+              <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+                <Plus size={16} /> New Task
               </button>
-            ))}
+            )}
           </div>
 
-          <div className="summary-card">
-            <h4>At a glance</h4>
-            <ul>
-              <li><span>Total</span><strong>{statusCounts.total}</strong></li>
-              <li><span>Todo</span><strong>{statusCounts.todo}</strong></li>
-              <li><span>In Progress</span><strong>{statusCounts.in_progress}</strong></li>
-              <li><span>Done</span><strong>{statusCounts.done}</strong></li>
-            </ul>
-          </div>
-
-          {user?.role === 'MANAGER' && (
-            <div className="summary-card">
-              <h4>Member productivity</h4>
-              <ul className="productivity-list">
-                {Object.entries(productivity).map(([member, stats]) => (
-                  <li key={member}>
-                    <div>
-                      <strong>{member}</strong>
-                      <div className="productivity-meta">
-                        <span>{stats.done} done</span>
-                        <span>{stats.in_progress} in progress</span>
-                        <span>{stats.todo} todo</span>
-                      </div>
-                    </div>
-                    <span className="pill-count">{stats.total}</span>
-                  </li>
-                ))}
-                {Object.keys(productivity).length === 0 && (
-                  <li className="muted">No assignments yet</li>
-                )}
-<<<<<<< HEAD
+          <nav className="sidenav">
+            <div className="filter-section">
+              <div className="filter-header">
+                <Filter size={16} />
+                <h4>Filters</h4>
               </div>
-              <div className="task-actions">
-                {(canManageTasks || task.assignee === user?.id) && (
-                  <button
-                    className="btn-edit"
-                    onClick={() => handleEdit(task)}
-                  >
-                    Edit
-                  </button>
-                )}
-                {canManageTasks && (
-                  <>
+              
+              <div className="filter-group">
+                <div className="filter-label">
+                  <ListChecks size={16} />
+                  <span>Status</span>
+                </div>
+                <div className="filter-options">
+                  {[
+                    { 
+                      key: 'all', 
+                      label: 'All Tasks', 
+                      icon: <ListChecks size={16} />,
+                      count: taskCounts.total
+                    },
+                    { 
+                      key: TASK_STATUS.TODO, 
+                      label: 'To Do', 
+                      icon: <ListChecks size={16} />,
+                      count: taskCounts[TASK_STATUS.TODO] || 0
+                    },
+                    { 
+                      key: TASK_STATUS.IN_PROGRESS, 
+                      label: 'In Progress', 
+                      icon: <ListChecks size={16} />,
+                      count: taskCounts[TASK_STATUS.IN_PROGRESS] || 0
+                    },
+                    { 
+                      key: TASK_STATUS.DONE, 
+                      label: 'Completed', 
+                      icon: <ListChecks size={16} />,
+                      count: taskCounts[TASK_STATUS.DONE] || 0
+                    },
+                  ].map((btn) => (
                     <button
-                      className="btn-delete"
-                      onClick={() => handleDelete(task.id)}
+                      key={btn.key}
+                      className={`filter-option ${filterStatus === btn.key ? 'active' : ''}`}
+                      onClick={() => setFilterStatus(btn.key)}
+                      type="button"
                     >
-                      Delete
+                      <span className="filter-icon">{btn.icon}</span>
+                      <span className="filter-label">{btn.label}</span>
+                      <span className="filter-count">{btn.count}</span>
                     </button>
+                  ))}
+                </div>
+              </div>
+
+              {canManageTasks && members.length > 0 && (
+                <div className="filter-group">
+                  <div className="filter-label">
+                    <Users size={16} />
+                    <span>Assignee</span>
+                  </div>
+                  <div className="select-wrapper">
                     <select
-                      className="assign-select"
-                      value={task.assignee || ''}
-                      onChange={(e) => handleAssign(task.id, e.target.value)}
+                      value={filterAssignee}
+                      onChange={(e) => setFilterAssignee(e.target.value)}
+                      className="select-input"
                     >
-                      <option value="">Assign to...</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.email}
+                      <option value="all">All Members</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.email}
                         </option>
                       ))}
                     </select>
-                  </>
-                )}
-              </div>
-=======
-              </ul>
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
+                    <ChevronDown size={16} className="select-arrow" />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {(user?.role === USER_ROLES.MANAGER || user?.role === USER_ROLES.ADMIN) && (
-            <div className="summary-card create-task">
-              <h4>Create task</h4>
-              {createError && <div className="error-message compact">{createError}</div>}
-              {createSuccess && <div className="success-message compact">{createSuccess}</div>}
-              <div className="form-group">
-                <label>Title</label>
-                <input
-                  type="text"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="Task title"
-                />
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder="Optional description"
-                />
-              </div>
-              <div className="form-group">
-                <label>Deadline</label>
-                <input
-                  type="datetime-local"
-                  value={newTask.deadline}
-                  onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Assign to</label>
-                <select
-                  value={newTask.assignee}
-                  onChange={(e) => setNewTask({ ...newTask, assignee: e.target.value })}
-                >
-                  <option value="">Unassigned</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.email} ({m.first_name} {m.last_name})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button className="btn-primary" disabled={creating} onClick={handleCreateTask}>
-                {creating ? 'Creating...' : 'Create task'}
-              </button>
-            </div>
-          )}
+          </nav>
         </aside>
 
+        {/* Tasks List */}
         <div className="tasks-content">
           <div className="tasks-header">
-            <div>
-              <p className="eyebrow">
-                {user?.role === USER_ROLES.MANAGER ? 'Tasks assigned' : 'Tasks'}
-              </p>
-              <h1>
-                {user?.role === USER_ROLES.MANAGER ? 'Team board' : 'Your workboard'}
-              </h1>
-            </div>
-            <div className="pill-row">
-              {statusFilterButtons.map((btn) => (
-                <button
-                  key={btn.key}
-                  className={`pill ${filter === btn.key ? 'active' : ''}`}
-                  onClick={() => setFilter(btn.key)}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
+            <h2>
+              {filterStatus === 'all' ? 'All Tasks' : `${TASK_STATUS_LABELS[filterStatus] || 'Tasks'}`}
+              {filterAssignee !== 'all' && ` (${members.find(m => m.id === filterAssignee)?.email || 'Assigned'})`}
+            </h2>
+            <div className="task-count">{filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}</div>
           </div>
 
-          {error && <div className="error-message">{error}</div>}
-          {assignError && <div className="error-message">{assignError}</div>}
-          {assignSuccess && <div className="success-message">{assignSuccess}</div>}
+          {error && <div className="alert alert-error">{error}</div>}
+          {success && <div className="alert alert-success">{success}</div>}
 
-          <div className="tasks-list">
-            {tasks.length === 0 ? (
-              <div className="empty-state">No tasks found</div>
-            ) : (
-              tasks.map((task) => (
+          {filteredTasks.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📭</div>
+              <h3>No tasks found</h3>
+              <p>Try adjusting your filters or create a new task to get started.</p>
+              {canManageTasks && (
+                <button 
+                  className="btn-primary" 
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  <Plus size={16} /> Create Task
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="task-grid">
+              {filteredTasks.map((task) => (
                 <div key={task.id} className="task-card">
-                  <div className="task-header">
-                    <div>
-                      <p className="eyebrow">#{String(task.id).slice(0, 6)}</p>
+                  <div className="task-card-header">
+                    <div className="task-card-title">
                       <h3>{task.title}</h3>
+                      <span className={`status-badge status-${task.status}`}>
+                        {TASK_STATUS_LABELS[task.status]}
+                      </span>
                     </div>
-                    <span className={`status-badge status-${task.status}`}>
-                      {TASK_STATUS_LABELS[task.status] || task.status}
-                    </span>
+                    {canManageTasks && (
+                      <div className="task-actions">
+                        <button 
+                          className="icon-button" 
+                          onClick={() => handleEdit(task)}
+                          aria-label="Edit task"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="icon-button danger" 
+                          onClick={() => handleDelete(task.id)}
+                          aria-label="Delete task"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
+                  
                   {task.description && (
-                    <p className="task-description">{task.description}</p>
+                    <div className="task-description">
+                      <p>{task.description}</p>
+                    </div>
                   )}
+                  
                   <div className="task-meta">
                     {task.assignee_detail && (
-                      <span>Assigned to: {task.assignee_detail.email}</span>
-                    )}
-                    {task.created_by_detail && (
-                      <span>Created by: {task.created_by_detail.email}</span>
+                      <div className="meta-item">
+                        <User size={14} />
+                        <span>{task.assignee_detail.email}</span>
+                      </div>
                     )}
                     {task.deadline && (
-                      <span>Deadline: {new Date(task.deadline).toLocaleDateString()}</span>
+                      <div className="meta-item">
+                        <Calendar size={14} />
+                        <span>{new Date(task.deadline).toLocaleDateString()}</span>
+                      </div>
                     )}
                   </div>
-                  {user?.role === USER_ROLES.MEMBER && (
-                    <div className="status-row">
-                      <label htmlFor={`status-${task.id}`}>Update status:</label>
-                      <select
-                        id={`status-${task.id}`}
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                        disabled={updatingId === task.id}
-                      >
-                        <option value="todo">Todo</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="done">Done</option>
-                      </select>
-                    </div>
-                  )}
-                  {(user?.role === USER_ROLES.MANAGER || user?.role === USER_ROLES.ADMIN) && (
-                    <div className="assign-row">
-                      <select
-                        onChange={(e) => handleAssign(task.id, e.target.value)}
-                        defaultValue={task.assignee || ''}
-                      >
-                        <option value="">Unassign</option>
-                        {members.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.email} ({m.first_name} {m.last_name})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+
+                  <div className="task-actions-row">
+                    {user?.role_name === USER_ROLES.MEMBER && (
+                      <div className="status-selector">
+                        <select
+                          value={task.status}
+                          onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                          disabled={updatingId === task.id}
+                          className="status-select"
+                        >
+                          <option value={TASK_STATUS.TODO}>Mark as Todo</option>
+                          <option value={TASK_STATUS.IN_PROGRESS}>Mark as In Progress</option>
+                          <option value={TASK_STATUS.DONE}>Mark as Done</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {canManageTasks && members.length > 0 && (
+                      <div className="assign-selector">
+                        <div className="select-wrapper">
+                          <select
+                            value={task.assignee || ''}
+                            onChange={(e) => handleAssign(task.id, e.target.value)}
+                            className="select-input"
+                          >
+                            <option value="">Assign to...</option>
+                            {members.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.email}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown size={16} className="select-arrow" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Comments Section */}
                   <div className="comments-section">
-                    <button
-                      className="pill secondary"
+                    <button 
+                      className="comments-toggle"
                       onClick={() => toggleComments(task.id)}
+                      aria-expanded={!!commentsOpen[task.id]}
                     >
-                      {commentsOpen[task.id] ? 'Hide comments' : 'Show comments'}
+                      <MessageSquare size={16} />
+                      <span>{commentsOpen[task.id] ? 'Hide comments' : 'Show comments'}</span>
+                      <span className="comment-count">
+                        {commentsData[task.id]?.length || 0}
+                      </span>
+                      {commentsOpen[task.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
+                    
                     {commentsOpen[task.id] && (
                       <div className="comments-box">
-                        {(commentsData[task.id] || []).map((c) => (
-                          <div key={c.id} className="comment">
-                            <div className="comment-meta">
-                              <span>{c.author_detail?.email || 'User'}</span>
-                              <span>{new Date(c.created_at).toLocaleString()}</span>
-                            </div>
-                            <div className="comment-body">{c.content}</div>
-                          </div>
-                        ))}
-                        <div className="comment-input">
+                        <div className="comments-list">
+                          {commentsData[task.id]?.length > 0 ? (
+                            commentsData[task.id].map((comment) => (
+                              <div key={comment.id} className="comment">
+                                <div className="comment-header">
+                                  <span className="comment-author">{comment.author_detail?.email}</span>
+                                  <span className="comment-time">
+                                    {new Date(comment.created_at).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="comment-content">{comment.content}</div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="no-comments">No comments yet</div>
+                          )}
+                        </div>
+                        
+                        <div className="comment-input-container">
                           <input
                             type="text"
                             placeholder="Add a comment..."
                             value={commentDrafts[task.id] || ''}
                             onChange={(e) =>
-                              setCommentDrafts({
-                                ...commentDrafts,
-                                [task.id]: e.target.value,
-                              })
+                              setCommentDrafts({ ...commentDrafts, [task.id]: e.target.value })
                             }
+                            onKeyPress={(e) => e.key === 'Enter' && handleAddComment(task.id)}
+                            className="comment-input"
                           />
-                          <button onClick={() => handleAddComment(task.id)}>
+                          <button 
+                            onClick={() => handleAddComment(task.id)}
+                            className="comment-submit"
+                            disabled={!commentDrafts[task.id]?.trim()}
+                          >
                             Post
                           </button>
                         </div>
@@ -627,146 +573,149 @@ const Tasks = () => {
                     )}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Create Task"
-      >
-        <form onSubmit={handleSubmit}>
+      {/* Create Task Modal */}
+      <Modal isOpen={showCreateModal} onClose={handleCloseCreateModal} title="Create New Task">
+        <form onSubmit={handleSubmit} className="task-form">
+          {error && <div className="form-error">{error}</div>}
+          
           <div className="form-group">
-            <label>Title *</label>
+            <label htmlFor="title">Title *</label>
             <input
-              type="text"
+              id="title"
               name="title"
+              placeholder="Enter task title"
               value={formData.title}
               onChange={handleChange}
-              required
+              className="form-input"
+              autoFocus
             />
           </div>
-
+          
           <div className="form-group">
-            <label>Description</label>
+            <label htmlFor="description">Description</label>
             <textarea
+              id="description"
               name="description"
+              placeholder="Enter task description"
               value={formData.description}
               onChange={handleChange}
+              className="form-textarea"
               rows="4"
             />
           </div>
-
-          <div className="form-group">
-            <label>Status</label>
-            <select name="status" value={formData.status} onChange={handleChange}>
-              <option value={TASK_STATUS.TODO}>Todo</option>
-              <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
-              <option value={TASK_STATUS.DONE}>Done</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Deadline</label>
-            <input
-              type="date"
-              name="deadline"
-              value={formData.deadline}
-              onChange={handleChange}
-            />
-          </div>
-
-          {canManageTasks && (
+          
+          <div className="form-row">
             <div className="form-group">
-              <label>Assign To</label>
-              <select name="assignee" value={formData.assignee} onChange={handleChange}>
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.email}
+              <label htmlFor="status">Status</label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="form-select"
+              >
+                <option value={TASK_STATUS.TODO}>To Do</option>
+                <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
+                <option value={TASK_STATUS.DONE}>Done</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="deadline">Deadline</label>
+              <input
+                type="date"
+                id="deadline"
+                name="deadline"
+                value={formData.deadline}
+                onChange={handleChange}
+                className="form-input"
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+          </div>
+          
+          {canManageTasks && members.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="assignee">Assign To</label>
+              <select 
+                id="assignee" 
+                name="assignee" 
+                value={formData.assignee} 
+                onChange={handleChange}
+                className="form-select"
+              >
+                <option value="">Select a team member</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.email}
                   </option>
                 ))}
               </select>
             </div>
           )}
-
+          
           <div className="form-actions">
-            <button type="button" onClick={() => setShowCreateModal(false)} className="btn-cancel">
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              onClick={handleCloseCreateModal}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn-primary">Create</button>
+            <button 
+              type="submit" 
+              className="btn-primary"
+              disabled={!formData.title.trim()}
+            >
+              Create Task
+            </button>
           </div>
         </form>
       </Modal>
 
-      <Modal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        title="Edit Task"
-      >
+      {/* Edit Task Modal */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Task">
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Title *</label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Description</label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="4"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Status</label>
-            <select name="status" value={formData.status} onChange={handleChange}>
-              <option value={TASK_STATUS.TODO}>Todo</option>
-              <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
-              <option value={TASK_STATUS.DONE}>Done</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Deadline</label>
-            <input
-              type="date"
-              name="deadline"
-              value={formData.deadline}
-              onChange={handleChange}
-            />
-          </div>
-
+          <input
+            name="title"
+            placeholder="Title"
+            value={formData.title}
+            onChange={handleChange}
+            required
+          />
+          <textarea
+            name="description"
+            placeholder="Description"
+            value={formData.description}
+            onChange={handleChange}
+          />
+          <input
+            type="date"
+            name="deadline"
+            value={formData.deadline}
+            onChange={handleChange}
+          />
           {canManageTasks && (
-            <div className="form-group">
-              <label>Assign To</label>
-              <select name="assignee" value={formData.assignee} onChange={handleChange}>
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select name="assignee" value={formData.assignee} onChange={handleChange}>
+              <option value="">Unassigned</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.email}
+                </option>
+              ))}
+            </select>
           )}
-
-          <div className="form-actions">
-            <button type="button" onClick={() => setShowEditModal(false)} className="btn-cancel">
+          <div className="modal-actions">
+            <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary">Update</button>
+            <button type="submit" className="btn-primary">Update Task</button>
           </div>
         </form>
       </Modal>
