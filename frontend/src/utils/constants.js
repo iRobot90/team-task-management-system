@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   TASKS: '/tasks/',
   MY_TASKS: '/tasks/my_tasks/',
   TASK_STATISTICS: '/tasks/statistics/',
+  NOTIFICATIONS: '/notifications/',
   
   // Roles
   ROLES: '/roles/',
@@ -36,11 +37,11 @@ export const TASK_STATUS_LABELS = {
   [TASK_STATUS.DONE]: 'Done',
 };
 
-// User Roles
+// User Roles (mirror backend enums)
 export const USER_ROLES = {
-  ADMIN: 'admin',
-  MANAGER: 'manager',
-  MEMBER: 'member',
+  ADMIN: 'ADMIN',
+  MANAGER: 'MANAGER',
+  MEMBER: 'MEMBER',
 };
 
 export const USER_ROLE_LABELS = {

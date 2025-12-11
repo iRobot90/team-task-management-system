@@ -169,6 +169,19 @@ This project is licensed under the MIT License.
 - **Manager**: Can create/edit/delete tasks and assign to team members
 - **Member**: Can view and update only tasks assigned to them
 
+## Demo Credentials
+
+- Admin: `admin@ttms.com` / `admin123`
+- Manager: `manager@ttms.com` / `manager123`
+- Member: `member@ttms.com` / `member123`
+
+## Notifications
+
+- Assignment: assignee is notified on task assign/unassign.
+- Status changes: creator is notified when a task is started or done.
+- Comments: assignee and creator are notified on new comments.
+- UI: bell icon in the top nav (unread badge), dashboard notifications list, and profile notifications list.
+
 ## Development Status
 
 - Backend scaffolding with Django + DRF

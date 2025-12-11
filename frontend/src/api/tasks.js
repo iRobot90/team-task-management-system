@@ -43,5 +43,22 @@ export const tasksAPI = {
     });
     return response.data;
   },
+
+  unassign: async (taskId) => {
+    const response = await api.post(`${API_ENDPOINTS.TASKS}${taskId}/unassign/`);
+    return response.data;
+  },
+
+  addComment: async (taskId, content) => {
+    const response = await api.post(`${API_ENDPOINTS.TASKS}${taskId}/comments/`, {
+      content,
+    });
+    return response.data;
+  },
+
+  listComments: async (taskId) => {
+    const response = await api.get(`${API_ENDPOINTS.TASKS}${taskId}/comments/`);
+    return response.data;
+  },
 };
 

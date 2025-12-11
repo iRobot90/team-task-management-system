@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.core.validators import MinLengthValidator
 from users.models import User
@@ -72,3 +74,51 @@ class Task(models.Model):
         if user.is_manager:
             return True
         return False
+
+
+class Notification(models.Model):
+    """Simple notification for task events"""
+
+    TASK_ASSIGNED = "TASK_ASSIGNED"
+    TASK_STARTED = "TASK_STARTED"
+    TASK_DONE = "TASK_DONE"
+    TASK_REMINDER = "TASK_REMINDER"
+    TASK_COMMENTED = "TASK_COMMENTED"
+
+    NOTIFICATION_TYPES = [
+        (TASK_ASSIGNED, "Task assigned"),
+        (TASK_STARTED, "Task started"),
+        (TASK_DONE, "Task completed"),
+        (TASK_REMINDER, "Task reminder"),
+        (TASK_COMMENTED, "Task commented"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="notifications")
+    type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_type_display()}: {self.message}"
+
+
+class Comment(models.Model):
+    """Task comments"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_comments")
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Comment by {self.author} on {self.task}"

@@ -4,45 +4,58 @@
   flex-direction: column;
 }
 
+/* Navbar Container */
 .navbar {
-  background-color: #2c3e50;
-  color: white;
+  background: #0f172a;
+  color: #e5e7eb;
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
-.navbar-brand a {
-  color: white;
-  text-decoration: none;
+/* Left Side: Brand + Menu */
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+}
+
+.brand {
+  color: #e5e7eb;
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: 700;
+  text-decoration: none;
 }
 
+/* Menu Links */
 .navbar-menu {
   display: flex;
-  gap: 2rem;
-  align-items: center;
+  gap: 1.5rem;
 }
 
 .nav-link {
-  color: white;
+  color: #cbd5e1;
   text-decoration: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
 }
 
 .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .nav-link.active {
-  background-color: rgba(255, 255, 255, 0.2);
+  background: #2563eb;
+  color: #fff;
 }
 
+/* Right Side: User Section */
 .navbar-user {
   display: flex;
   align-items: center;
@@ -50,39 +63,48 @@
 }
 
 .user-name {
-  color: white;
+  color: #e5e7eb;
   font-size: 0.9rem;
 }
 
 .btn-logout {
-  background-color: #e74c3c;
-  color: white;
+  background: #dc2626;
+  padding: 0.45rem 1rem;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  color: #fff;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  font-weight: 600;
+  transition: background 0.2s ease;
 }
 
 .btn-logout:hover {
-  background-color: #c0392b;
+  background: #b91c1c;
 }
 
+/* Page Content */
 .main-content {
   flex: 1;
   padding: 2rem;
-  background-color: #f5f5f5;
+  background: #f3f4f6;
 }
 
-@media (max-width: 768px) {
+/* Mobile Responsive */
+@media (max-width: 900px) {
   .navbar {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .navbar-left {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 1rem;
   }
 
   .navbar-menu {
     flex-wrap: wrap;
-    justify-content: center;
+    gap: 1rem;
   }
 }
-

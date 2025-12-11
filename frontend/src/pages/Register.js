@@ -11,6 +11,7 @@ const Register = () => {
     password_confirm: '',
     first_name: '',
     last_name: '',
+    role: 'MEMBER',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -107,6 +108,19 @@ const Register = () => {
               />
             </div>
           </div>
+
+        <div className="form-group">
+          <label htmlFor="role">Register as</label>
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+          >
+            <option value="MEMBER">Member (staff)</option>
+            <option value="MANAGER">Manager</option>
+          </select>
+        </div>
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
