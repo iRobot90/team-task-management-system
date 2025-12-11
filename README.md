@@ -173,8 +173,83 @@ This project is licensed under the MIT License.
 
 - Backend scaffolding with Django + DRF
 - JWT Authentication
-- RBAC system
-- Task and User models
-- API endpoints
-- Frontend (React) - In progress
-- Deployment configuration
+- RBAC system (Admin, Manager, Member)
+- Task and User models with full CRUD
+- Complete API endpoints
+- React frontend with all pages
+- Task CRUD operations (Create, Update, Delete, Assign)
+- User management (Admin only)
+- Task filtering by status and assignee
+- Deployment documentation
+- Architecture documentation
+
+## Quick Start
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your database credentials
+python manage.py migrate
+python manage.py init_roles
+python manage.py runserver
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+# Edit .env with API base URL
+npm start
+```
+
+## Documentation
+
+- [Deployment Guide](DEPLOYMENT.md) - Complete deployment instructions for DigitalOcean VPS
+- [Architecture Decisions](ARCHITECTURE.md) - Detailed architecture and design decisions
+
+## Features Implemented
+
+### Authentication & Authorization
+- User registration and login with JWT
+- Role-Based Access Control (RBAC)
+- Three roles: Admin, Manager, Member
+- Protected routes and API endpoints
+
+### Task Management
+- Create, read, update, delete tasks
+- Task assignment to users
+- Filter by status (Todo, In Progress, Done)
+- Filter by assignee
+- Deadline tracking
+- Status updates
+
+### User Management (Admin Only)
+- Create, update, delete users
+- Role assignment
+- User activation/deactivation
+- Profile management
+
+### Dashboard
+- Task statistics
+- Role-based views
+- Quick overview of tasks
+
+## API Documentation
+
+All API endpoints are RESTful and follow standard conventions. See the codebase for detailed endpoint documentation.
+
+Base URL: `http://localhost:8000/api`
+
+Key endpoints:
+- `/api/auth/register/` - User registration
+- `/api/auth/login/` - User login
+- `/api/tasks/` - Task CRUD operations
+- `/api/users/` - User management (Admin only)
+- `/api/roles/` - List available roles
