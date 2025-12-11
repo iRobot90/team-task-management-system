@@ -43,6 +43,10 @@ const Tasks = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterAssignee, setFilterAssignee] = useState('all');
   // Notification state is now handled in NotificationBell component
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+  const [creating, setCreating] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -133,6 +137,8 @@ const Tasks = () => {
   if (loading) return <Loading message="Loading tasks..." />;
 
   // Handle task status change
+  };
+
   const handleStatusChange = async (taskId, status) => {
     setUpdatingId(taskId);
     try {
@@ -301,12 +307,76 @@ const handleDelete = async (taskId) => {
     } catch (err) {
       setError('Failed to delete task');
     }
-  }
-};
+  };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    try {
+      const taskData = {
+        ...formData,
+        deadline: formData.deadline || null,
+        assignee: formData.assignee || null,
+      };
+
+      if (selectedTask) {
+        await tasksAPI.update(selectedTask.id, taskData);
+        setSuccess('Task updated successfully');
+      } else {
+        await tasksAPI.create(taskData);
+        setSuccess('Task created successfully');
+      }
+
+      setShowCreateModal(false);
+      setShowEditModal(false);
+      setSelectedTask(null);
+      fetchTasks();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save task');
+      console.error('Error saving task:', err);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  if (loading) {
+    return <Loading message="Loading tasks..." />;
+  }
+
+  const statusCounts = tasks.reduce(
+    (acc, t) => {
+      acc.total += 1;
+      acc[t.status] = (acc[t.status] || 0) + 1;
+      return acc;
+    },
+    { total: 0, todo: 0, in_progress: 0, done: 0 }
+  );
+
+  const productivity = tasks.reduce((acc, t) => {
+    const key = t.assignee_detail?.email || 'Unassigned';
+    acc[key] = acc[key] || { total: 0, done: 0, in_progress: 0, todo: 0 };
+    acc[key].total += 1;
+    acc[key][t.status] += 1;
+    return acc;
+  }, {});
+
+  const statusFilterButtons = [
+    { key: 'all', label: 'All' },
+    { key: 'todo', label: 'Todo' },
+    { key: 'in_progress', label: 'In Progress' },
+    { key: 'done', label: 'Done' },
+  ];
 
   return (
-    <div className="tasks-page">
+    <><div className="tasks-page">
       <div className="tasks-container">
         {/* Sidebar */}
         <aside className="tasks-sidebar">
@@ -319,83 +389,110 @@ const handleDelete = async (taskId) => {
             )}
           </div>
 
-          <nav className="sidenav">
-            <div className="filter-section">
-              <div className="filter-header">
-                <Filter size={16} />
-                <h4>Filters</h4>
-              </div>
-              
-              <div className="filter-group">
-                <div className="filter-label">
-                  <ListChecks size={16} />
-                  <span>Status</span>
-                </div>
-                <div className="filter-options">
-                  {[
-                    { 
-                      key: 'all', 
-                      label: 'All Tasks', 
-                      icon: <ListChecks size={16} />,
-                      count: taskCounts.total
-                    },
-                    { 
-                      key: TASK_STATUS.TODO, 
-                      label: 'To Do', 
-                      icon: <ListChecks size={16} />,
-                      count: taskCounts[TASK_STATUS.TODO] || 0
-                    },
-                    { 
-                      key: TASK_STATUS.IN_PROGRESS, 
-                      label: 'In Progress', 
-                      icon: <ListChecks size={16} />,
-                      count: taskCounts[TASK_STATUS.IN_PROGRESS] || 0
-                    },
-                    { 
-                      key: TASK_STATUS.DONE, 
-                      label: 'Completed', 
-                      icon: <ListChecks size={16} />,
-                      count: taskCounts[TASK_STATUS.DONE] || 0
-                    },
-                  ].map((btn) => (
-                    <button
-                      key={btn.key}
-                      className={`filter-option ${filterStatus === btn.key ? 'active' : ''}`}
-                      onClick={() => setFilterStatus(btn.key)}
-                      type="button"
-                    >
-                      <span className="filter-icon">{btn.icon}</span>
-                      <span className="filter-label">{btn.label}</span>
-                      <span className="filter-count">{btn.count}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {canManageTasks && members.length > 0 && (
-                <div className="filter-group">
-                  <div className="filter-label">
-                    <Users size={16} />
-                    <span>Assignee</span>
-                  </div>
-                  <div className="select-wrapper">
-                    <select
-                      value={filterAssignee}
-                      onChange={(e) => setFilterAssignee(e.target.value)}
-                      className="select-input"
-                    >
-                      <option value="all">All Members</option>
-                      {members.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.email}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="select-arrow" />
-                  </div>
-                </div>
-              )}
+          <div className="tasks-filters">
+            <div className="filter-group">
+              <label>Status:</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="all">All</option>
+                <option value={TASK_STATUS.TODO}>Todo</option>
+                <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
+                <option value={TASK_STATUS.DONE}>Done</option>
+              </select>
             </div>
+
+            {canManageTasks && (
+              <div className="filter-group">
+                <label>Assignee:</label>
+                <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}>
+                  <option value="all">All</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {error && <div className="error-message">{error}</div>}
+          {success && <div className="success-message">{success}</div>}
+
+          <div className="tasks-list">
+            {tasks.length === 0 ? (
+              <div className="empty-state">No tasks found</div>
+            ) : (
+              tasks.map((task) => (
+                <div key={task.id} className="task-card">
+                  <div className="task-header">
+                    <h3>{task.title}</h3>
+                    <span className={`status-badge status-${task.status}`}>
+                      {TASK_STATUS_LABELS[task.status] || task.status}
+                    </span>
+                  </div>
+                  {task.description && (
+                    <p className="task-description">{task.description}</p>
+                  )}
+                  <div className="task-meta">
+                    {task.assignee_detail ? (
+                      <span>Assigned to: {task.assignee_detail.email}</span>
+                    ) : (
+                      <span className="unassigned">Unassigned</span>
+                    )}
+                    {task.deadline && (
+                      <span>Deadline: {new Date(task.deadline).toLocaleDateString()}</span>
+                    )}
+                  </div>
+
+                  <div className="task-actions">
+                    {(canManageTasks || task.assignee === user?.id) && (
+                      <button
+                        className="btn-edit"
+                        onClick={() => handleEdit(task)}
+                      >
+                        {canManageTasks ? 'Edit' : 'Update'}
+                      </button>
+                    )}
+                    {canManageTasks && (
+                      <>
+                        <button
+                          key={btn.key}
+                          className={`filter-option ${filterStatus === btn.key ? 'active' : ''}`}
+                          onClick={() => setFilterStatus(btn.key)}
+                          type="button"
+                        >
+                          <span className="filter-icon">{btn.icon}</span>
+                          <span className="filter-label">{btn.label}</span>
+                          <span className="filter-count">{btn.count}</span>
+                        </button>
+                        ))}
+                      </>)}div>
+                  </div>
+
+                  {canManageTasks && members.length > 0 && (
+                    <div className="filter-group">
+                      <div className="filter-label">
+                        <Users size={16} />
+                        <span>Assignee</span>
+                      </div>
+                      <div className="select-wrapper">
+                        <select
+                          value={filterAssignee}
+                          onChange={(e) => setFilterAssignee(e.target.value)}
+                          className="select-input"
+                        >
+                          <option value="all">All Members</option>
+                          {members.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.email}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={16} className="select-arrow" />
+                      </div>
+                    </div>
+                  )}
+                </div>)))}
           </nav>
         </aside>
 
@@ -418,8 +515,8 @@ const handleDelete = async (taskId) => {
               <h3>No tasks found</h3>
               <p>Try adjusting your filters or create a new task to get started.</p>
               {canManageTasks && (
-                <button 
-                  className="btn-primary" 
+                <button
+                  className="btn-primary"
                   onClick={() => setShowCreateModal(true)}
                 >
                   <Plus size={16} /> Create Task
@@ -439,15 +536,15 @@ const handleDelete = async (taskId) => {
                     </div>
                     {canManageTasks && (
                       <div className="task-actions">
-                        <button 
-                          className="icon-button" 
+                        <button
+                          className="icon-button"
                           onClick={() => handleEdit(task)}
                           aria-label="Edit task"
                         >
                           <Edit size={16} />
                         </button>
-                        <button 
-                          className="icon-button danger" 
+                        <button
+                          className="icon-button danger"
                           onClick={() => handleDelete(task.id)}
                           aria-label="Delete task"
                         >
@@ -456,13 +553,13 @@ const handleDelete = async (taskId) => {
                       </div>
                     )}
                   </div>
-                  
+
                   {task.description && (
                     <div className="task-description">
                       <p>{task.description}</p>
                     </div>
                   )}
-                  
+
                   <div className="task-meta">
                     {task.assignee_detail && (
                       <div className="meta-item">
@@ -517,7 +614,7 @@ const handleDelete = async (taskId) => {
 
                   {/* Comments Section */}
                   <div className="comments-section">
-                    <button 
+                    <button
                       className="comments-toggle"
                       onClick={() => toggleComments(task.id)}
                       aria-expanded={!!commentsOpen[task.id]}
@@ -529,7 +626,7 @@ const handleDelete = async (taskId) => {
                       </span>
                       {commentsOpen[task.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
-                    
+
                     {commentsOpen[task.id] && (
                       <div className="comments-box">
                         <div className="comments-list">
@@ -549,19 +646,16 @@ const handleDelete = async (taskId) => {
                             <div className="no-comments">No comments yet</div>
                           )}
                         </div>
-                        
+
                         <div className="comment-input-container">
                           <input
                             type="text"
                             placeholder="Add a comment..."
                             value={commentDrafts[task.id] || ''}
-                            onChange={(e) =>
-                              setCommentDrafts({ ...commentDrafts, [task.id]: e.target.value })
-                            }
+                            onChange={(e) => setCommentDrafts({ ...commentDrafts, [task.id]: e.target.value })}
                             onKeyPress={(e) => e.key === 'Enter' && handleAddComment(task.id)}
-                            className="comment-input"
-                          />
-                          <button 
+                            className="comment-input" />
+                          <button
                             onClick={() => handleAddComment(task.id)}
                             className="comment-submit"
                             disabled={!commentDrafts[task.id]?.trim()}
@@ -577,6 +671,45 @@ const handleDelete = async (taskId) => {
             </div>
           )}
         </div>
+      </>
+      )}
+    </div><div className="comments-section">
+        <button
+          className="pill secondary"
+          onClick={() => toggleComments(task.id)}
+        >
+          {commentsOpen[task.id] ? 'Hide comments' : 'Show comments'}
+        </button>
+        {commentsOpen[task.id] && (
+          <div className="comments-box">
+            {(commentsData[task.id] || []).map((c) => (
+              <div key={c.id} className="comment">
+                <div className="comment-meta">
+                  <span>{c.author_detail?.email || 'User'}</span>
+                  <span>{new Date(c.created_at).toLocaleString()}</span>
+                </div>
+                <div className="comment-body">{c.content}</div>
+              </div>
+            ))}
+            <div className="comment-input">
+              <input
+                type="text"
+                placeholder="Add a comment..."
+                value={commentDrafts[task.id] || ''}
+                onChange={(e) => setCommentDrafts({
+                  ...commentDrafts,
+                  [task.id]: e.target.value,
+                })} />
+              <button onClick={() => handleAddComment(task.id)}>
+                Post
+              </button>
+            </div>
+          </div>
+        )}
+      </div></>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Create Task Modal */}
@@ -679,43 +812,104 @@ const handleDelete = async (taskId) => {
         </form>
       </Modal>
 
-      {/* Edit Task Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Task">
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Update Task Status"
+      >
         <form onSubmit={handleSubmit}>
-          <input
-            name="title"
-            placeholder="Title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-          />
-          <textarea
-            name="description"
-            placeholder="Description"
-            value={formData.description}
-            onChange={handleChange}
-          />
-          <input
-            type="date"
-            name="deadline"
-            value={formData.deadline}
-            onChange={handleChange}
-          />
-          {canManageTasks && (
-            <select name="assignee" value={formData.assignee} onChange={handleChange}>
-              <option value="">Unassigned</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.email}
-                </option>
-              ))}
-            </select>
+          {canManageTasks ? (
+            <>
+              <div className="form-group">
+                <label>Title *</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  required
+                  disabled={!canManageTasks}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows="4"
+                  disabled={!canManageTasks}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Deadline</label>
+                <input
+                  type="date"
+                  name="deadline"
+                  value={formData.deadline}
+                  onChange={handleChange}
+                  disabled={!canManageTasks}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="mb-4">
+              <h4 className="font-medium text-gray-900">{formData.title}</h4>
+              {formData.description && (
+                <p className="text-gray-600 mt-1">{formData.description}</p>
+              )}
+              {formData.deadline && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Deadline: {new Date(formData.deadline).toLocaleDateString()}
+                </p>
+              )}
+            </div>
           )}
-          <div className="modal-actions">
-            <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
+
+          <div className="form-group">
+            <label>Status</label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+            >
+              <option value={TASK_STATUS.TODO}>To Do</option>
+              <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
+              <option value={TASK_STATUS.DONE}>Done</option>
+            </select>
+          </div>
+
+          {canManageTasks && (
+            <div className="form-group">
+              <label>Assign To</label>
+              <select
+                name="assignee"
+                value={formData.assignee}
+                onChange={handleChange}
+              >
+                <option value="">Unassigned</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn-cancel"
+              onClick={() => setShowEditModal(false)}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn-primary">Update Task</button>
+            <button type="submit" className="btn-primary">
+              Update Status
+            </button>
           </div>
         </form>
       </Modal>
