@@ -32,6 +32,13 @@ const Users = () => {
     fetchRoles();
   }, []);
 
+  const { user: currentUser } = useAuth();
+
+  const userCanEditRole = (targetRole) => {
+    // Only Admins can change roles
+    return currentUser?.role === USER_ROLES.ADMIN;
+  };
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -214,7 +221,6 @@ const Users = () => {
                     {user.first_name} {user.last_name}
                   </td>
                   <td>
-<<<<<<< HEAD
                     <select
                       className="role-select"
                       value={user.role || ''}
@@ -227,11 +233,6 @@ const Users = () => {
                         </option>
                       ))}
                     </select>
-=======
-                    <span className="role-badge">
-                      {USER_ROLE_LABELS[user.role] || user.role_display || user.role || 'No Role'}
-                    </span>
->>>>>>> 11a5649 (Log registration validation errors; surface registration errors in frontend)
                   </td>
                   <td>
                     <span className={user.is_active ? 'status-active' : 'status-inactive'}>

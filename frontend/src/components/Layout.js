@@ -2,6 +2,9 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_ROLES } from '../utils/constants';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import NotificationBell from './NotificationBell';
 import './Layout.css';
 import NotificationBell from './NotificationBell';
 
@@ -15,19 +18,15 @@ const Layout = ({ children }) => {
     navigate('/login');
   };
 
-  const isActive = (path) => {
-    return location.pathname === path ? 'active' : '';
-  };
+  const isActive = (path) => location.pathname.startsWith(path);
 
   return (
     <div className="layout">
       <nav className="navbar">
-        <div className="navbar-brand">
-          <Link to="/">TTMS</Link>
-        </div>
-        <div className="navbar-menu">
-          <Link to="/dashboard" className={`nav-link ${isActive('/dashboard')}`}>
-            Dashboard
+        {/* Left - Brand */}
+        <div className="navbar-left">
+          <Link to="/" className="brand">
+            TTMS
           </Link>
           <Link to="/tasks" className={`nav-link ${isActive('/tasks')}`}>
             Tasks
@@ -36,22 +35,62 @@ const Layout = ({ children }) => {
             <Link to="/users" className={`nav-link ${isActive('/users')}`}>
               Users
             </Link>
-          )}
-          <Link to="/profile" className={`nav-link ${isActive('/profile')}`}>
-            Profile
-          </Link>
+
+            <Link
+              to="/tasks"
+              className={`nav-link ${isActive('/tasks') ? 'active' : ''}`}
+            >
+              Tasks
+            </Link>
+
+            {user?.role === USER_ROLES.ADMIN && (
+              <Link
+                to="/users"
+                className={`nav-link ${isActive('/users') ? 'active' : ''}`}
+              >
+                Users
+              </Link>
+            )}
+
+            <Link
+              to="/profile"
+              className={`nav-link ${isActive('/profile') ? 'active' : ''}`}
+            >
+              Profile
+            </Link>
+          </div>
         </div>
-        <div className="navbar-user">
-          <span className="user-name">{user?.email}</span>
-          <button onClick={handleLogout} className="btn-logout">
-            Logout
-          </button>
+
+        {/* Right - User and Notifications */}
+        <div className="navbar-right">
+          <div className="user-actions">
+            <NotificationBell />
+            <div className="user-menu">
+              <span className="user-email">{user?.email}</span>
+              <button onClick={handleLogout} className="btn-logout">
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
       </nav>
-      <main className="main-content">{children}</main>
+
+      <main className="main-content">
+        {children}
+        <ToastContainer 
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+      </main>
     </div>
   );
 };
 
 export default Layout;
-

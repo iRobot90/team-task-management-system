@@ -52,6 +52,11 @@ class User(RoleFlagsMixin, AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.role})"
 
+class User(RoleFlagsMixin, AbstractUser):
+    class Role(models.TextChoices):
+        ADMIN = "ADMIN", "Admin"
+        MANAGER = "MANAGER", "Manager"
+        MEMBER = "MEMBER", "Member"
 
 class AdminProfile(models.Model):
     """Profile for users with administrative privileges."""

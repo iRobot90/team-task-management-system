@@ -7,13 +7,13 @@ This guide provides step-by-step instructions for deploying the TTMS application
 - DigitalOcean VPS (Ubuntu 22.04 LTS recommended)
 - Domain name (optional, can use IP address)
 - SSH access to the server
-<<<<<<< HEAD
-- Server credentials provided by administrator
-=======
 - Basic knowledge of Linux commands
  - Basic knowledge of Linux commands
  - Server credentials provided by administrator
->>>>>>> temp-stash-branch
+- Basic knowledge of Linux commands
+ - Basic knowledge of Linux commands
+ - Server credentials provided by administrator
+
 
 ## Server Setup
 
@@ -93,10 +93,6 @@ SECRET_KEY=your-django-secret-key-here-generate-with-openssl-rand-hex-32
 DEBUG=False
 ALLOWED_HOSTS=your-domain.com,your-server-ip
 USE_POSTGRES=True
-<<<<<<< HEAD
-USE_POSTGRES=True
-=======
->>>>>>> temp-stash-branch
 DB_NAME=ttms_db
 DB_USER=ttms_user
 DB_PASSWORD=your_secure_password_here
@@ -130,11 +126,9 @@ python manage.py createsuperuser
 python manage.py collectstatic --noinput
 ```
 
-<<<<<<< HEAD
-### 5. Test Django Application
+### Test Django Application
 =======
 ### Test Django Application
->>>>>>> temp-stash-branch
 
 ```bash
 # Test with Gunicorn
@@ -143,12 +137,19 @@ gunicorn config.wsgi:application --bind 0.0.0.0:8000
 
 If it works, stop it with `Ctrl+C`.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-### 6. Create Gunicorn Service
-=======
 ### 7. Create Gunicorn Service
->>>>>>> temp-stash-branch
+
+### 7. Create Gunicorn Service
+
+
+
+
+
+
+
+
+
+
 
 ```bash
 # Create systemd service file
@@ -449,9 +450,6 @@ crontab -e
 # Add: 0 2 * * * /home/ttms/backup.sh
 ```
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 ## Demo Credentials
 
 After deployment, you can create demo users using Django admin or the API:
@@ -464,8 +462,6 @@ After deployment, you can create demo users using Django admin or the API:
 
 For issues or questions, refer to the main README.md or contact the development team.
 
-=======
->>>>>>> temp-stash-branch
 ## Post-Deployment Checklist
 
 - [ ] Backend accessible via HTTPS
@@ -477,7 +473,5 @@ For issues or questions, refer to the main README.md or contact the development 
 - [ ] Frontend connects to backend
 - [ ] All features tested
 - [ ] API documentation accessible at /api/docs/
-<<<<<<< HEAD
-=======
->>>>>>> 24df254 (docs: add deployment guide and demo credentials for DigitalOcean VPS)
->>>>>>> temp-stash-branch
+
+
