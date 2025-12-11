@@ -2,8 +2,14 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Task
-from .serializers import TaskSerializer, TaskCreateSerializer, TaskUpdateSerializer
+from .models import Task, Notification, Comment
+from .serializers import (
+    TaskSerializer,
+    TaskCreateSerializer,
+    TaskUpdateSerializer,
+    NotificationSerializer,
+    CommentSerializer,
+)
 from users.permissions import CanManageTasks, CanEditTask, CanDeleteTask, CanAssignTasks
 
 
@@ -65,7 +71,14 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set created_by when creating a task"""
-        serializer.save(created_by=self.request.user)
+        task = serializer.save(created_by=self.request.user)
+        if task.assignee:
+            Notification.objects.create(
+                user=task.assignee,
+                task=task,
+                type=Notification.TASK_ASSIGNED,
+                message=f"You were assigned to '{task.title}'.",
+            )
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, CanAssignTasks])
     def assign(self, request, pk=None):
@@ -84,6 +97,12 @@ class TaskViewSet(viewsets.ModelViewSet):
             assignee = User.objects.get(id=assignee_id)
             task.assignee = assignee
             task.save()
+            Notification.objects.create(
+                user=assignee,
+                task=task,
+                type=Notification.TASK_ASSIGNED,
+                message=f"You were assigned to '{task.title}'.",
+            )
             return Response({
                 'message': f'Task assigned to {assignee.email}',
                 'task': TaskSerializer(task).data
@@ -118,8 +137,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             'done': queryset.filter(status=Task.DONE).count(),
         }
         
-        # Add user-specific stats for members
-        if user.is_member:
+        # Add user-specific stats for members and managers (who also work on tasks)
+        if user.is_member or user.is_manager:
             user_tasks = queryset.filter(assignee=user)
             stats['my_total'] = user_tasks.count()
             stats['my_todo'] = user_tasks.filter(status=Task.TODO).count()
@@ -127,3 +146,92 @@ class TaskViewSet(viewsets.ModelViewSet):
             stats['my_done'] = user_tasks.filter(status=Task.DONE).count()
         
         return Response(stats)
+
+    def perform_update(self, serializer):
+        old_status = serializer.instance.status
+        task = serializer.save()
+        # Notify managers/creators on key status changes
+        if old_status != task.status:
+            if task.status == Task.IN_PROGRESS and task.created_by:
+                Notification.objects.create(
+                    user=task.created_by,
+                    task=task,
+                    type=Notification.TASK_STARTED,
+                    message=f"Task '{task.title}' was started.",
+                )
+            if task.status == Task.DONE and task.created_by:
+                Notification.objects.create(
+                    user=task.created_by,
+                    task=task,
+                    type=Notification.TASK_DONE,
+                    message=f"Task '{task.title}' was completed.",
+                )
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, CanAssignTasks])
+    def unassign(self, request, pk=None):
+        """Unassign a task (Admin/Manager only)"""
+        task = self.get_object()
+        if not task.assignee:
+            return Response({"message": "Task already unassigned"})
+        task.assignee = None
+        task.save()
+        return Response({"message": "Task unassigned", "task": TaskSerializer(task).data})
+
+    @action(detail=True, methods=["get", "post"], permission_classes=[IsAuthenticated])
+    def comments(self, request, pk=None):
+        """List or add comments to a task"""
+        task = self.get_object()
+
+        if request.method.lower() == "get":
+            qs = task.comments.select_related("author").all()
+            return Response(CommentSerializer(qs, many=True).data)
+
+        # POST
+        content = request.data.get("content")
+        if not content:
+            return Response({"error": "content is required"}, status=status.HTTP_400_BAD_REQUEST)
+        comment = Comment.objects.create(task=task, author=request.user, content=content)
+        # notify assignee and creator (except author)
+        recipients = set()
+        if task.assignee and task.assignee != request.user:
+            recipients.add(task.assignee)
+        if task.created_by and task.created_by != request.user:
+            recipients.add(task.created_by)
+        for u in recipients:
+            Notification.objects.create(
+                user=u,
+                task=task,
+                type=Notification.TASK_COMMENTED,
+                message=f"New comment on '{task.title}': {content[:80]}",
+            )
+        return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    """Notifications for the current user"""
+
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def mark_read(self, request):
+        """Mark a notification as read"""
+        notif_id = request.data.get("id")
+        if not notif_id:
+            return Response({"error": "id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            notif = Notification.objects.get(id=notif_id, user=request.user)
+            notif.is_read = True
+            notif.save()
+            return Response({"message": "Marked read"})
+        except Notification.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def mark_all_read(self, request):
+        """Mark all notifications as read"""
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return Response({"message": "All notifications marked read"})

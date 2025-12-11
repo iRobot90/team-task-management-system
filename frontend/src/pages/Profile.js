@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usersAPI } from '../api/users';
+import { notificationsAPI } from '../api/notifications';
 import { useAuth } from '../context/AuthContext';
 import Loading from '../components/Loading';
 import { USER_ROLE_LABELS } from '../utils/constants';
@@ -12,6 +13,7 @@ const Profile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [editing, setEditing] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -20,6 +22,7 @@ const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
+    fetchNotifications();
   }, []);
 
   const fetchProfile = async () => {
@@ -37,6 +40,15 @@ const Profile = () => {
       console.error('Error fetching profile:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const data = await notificationsAPI.list();
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Error fetching notifications', err);
     }
   };
 
@@ -117,6 +129,24 @@ const Profile = () => {
                 </span>
               </div>
             </div>
+
+            {notifications.length > 0 && (
+              <div className="notifications">
+                <h3>Notifications</h3>
+                <ul>
+                  {notifications.map((n) => (
+                    <li key={n.id}>
+                      <div className="notif-title">{n.task_title || 'Task'}</div>
+                      <div className="notif-message">{n.message}</div>
+                      <div className="notif-meta">
+                        <span>{n.type}</span>
+                        <span>{new Date(n.created_at).toLocaleString()}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         ) : (
           <form onSubmit={handleSubmit}>

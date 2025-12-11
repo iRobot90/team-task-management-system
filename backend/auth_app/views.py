@@ -6,6 +6,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from users.models import User
 from users.serializers import UserRegistrationSerializer, UserSerializer
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -16,7 +19,12 @@ class RegisterView(generics.CreateAPIView):
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        # Validate without raising so we can log validation errors for debugging
+        if not serializer.is_valid():
+            # Log validation errors to help diagnose 400 responses
+            logger.debug('Registration validation errors: %s', serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         user = serializer.save()
         
         # Generate JWT tokens

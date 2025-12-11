@@ -1,6 +1,4 @@
 from rest_framework import permissions
-from users.models import Role
-
 
 class IsAdmin(permissions.BasePermission):
     """Permission check for Admin role"""

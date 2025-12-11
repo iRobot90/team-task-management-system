@@ -1,13 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Role
-
-
-@admin.register(Role)
-class RoleAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'created_at']
-    list_filter = ['name', 'created_at']
-    search_fields = ['name', 'description']
+from .models import User
 
 
 @admin.register(User)
@@ -18,9 +11,24 @@ class UserAdmin(BaseUserAdmin):
     ordering = ['-created_at']
     
     fieldsets = BaseUserAdmin.fieldsets + (
-        ('Additional Info', {'fields': ('role', 'phone')}),
+        ('Additional Info', {
+            'fields': (
+                'role',
+                'profile_image',
+                'phone_number',
+                'middle_name',
+            )
+        }),
     )
     
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        ('Additional Info', {'fields': ('role', 'phone', 'email')}),
+        ('Additional Info', {
+            'fields': (
+                'role',
+                'profile_image',
+                'phone_number',
+                'middle_name',
+                'email',
+            )
+        }),
     )
