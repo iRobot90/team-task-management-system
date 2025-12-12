@@ -1,83 +1,85 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_ROLES } from '../utils/constants';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import NotificationBell from './NotificationBell';
 import SideNav from './SideNav';
-import './Layout.css';
 import NotificationBell from './NotificationBell';
+import { Menu, LogOut } from 'lucide-react';
+import './Layout.css';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isSideNavCollapsed, setIsSideNavCollapsed] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
+  const toggleSideNav = () => {
+    setIsSideNavCollapsed(!isSideNavCollapsed);
+  };
+
   const isActive = (path) => location.pathname.startsWith(path);
 
   return (
     <div className="layout">
-      <nav className="navbar">
+      <nav className="navbar navbar-shifted">
         {/* Left - Brand */}
         <div className="navbar-left">
+          <button className="hamburger-toggle" onClick={toggleSideNav}>
+            <Menu size={20} />
+          </button>
           <Link to="/" className="brand">
             TTMS
           </Link>
-          <Link to="/tasks" className={`nav-link ${isActive('/tasks')}`}>
+          <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>
+            Dashboard
+          </Link>
+          <Link to="/tasks" className={`nav-link ${isActive('/tasks') ? 'active' : ''}`}>
             Tasks
           </Link>
+          {(user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.MANAGER) && (
+            <Link to="/team-performance" className={`nav-link ${isActive('/team-performance') ? 'active' : ''}`}>
+              Team Performance
+            </Link>
+          )}
+          {user?.role === USER_ROLES.MEMBER && (
+            <Link to="/my-performance" className={`nav-link ${isActive('/my-performance') ? 'active' : ''}`}>
+              My Performance
+            </Link>
+          )}
           {user?.role === USER_ROLES.ADMIN && (
-            <Link to="/users" className={`nav-link ${isActive('/users')}`}>
+            <Link to="/users" className={`nav-link ${isActive('/users') ? 'active' : ''}`}>
               Users
             </Link>
-
-            <Link
-              to="/tasks"
-              className={`nav-link ${isActive('/tasks') ? 'active' : ''}`}
-            >
-              Tasks
-            </Link>
-
-            {user?.role === USER_ROLES.ADMIN && (
-              <Link
-                to="/users"
-                className={`nav-link ${isActive('/users') ? 'active' : ''}`}
-              >
-                Users
-              </Link>
-            )}
-
-            <Link
-              to="/profile"
-              className={`nav-link ${isActive('/profile') ? 'active' : ''}`}
-            >
-              Profile
-            </Link>
-          </div>
+          )}
+          <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
+            Profile
+          </Link>
         </div>
 
-        {/* Right - User and Notifications */}
+        {/* Right - User actions */}
         <div className="navbar-right">
+          <div className="user-welcome">
+            Welcome, {user?.first_name || user?.username || user?.email?.split('@')[0]}
+          </div>
           <div className="user-actions">
             <NotificationBell />
-            <div className="user-menu">
-              <span className="user-email">{user?.email}</span>
-              <button onClick={handleLogout} className="btn-logout">
-                Logout
-              </button>
-            </div>
+            <button className="logout-btn" onClick={handleLogout}>
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </nav>
 
       <div className="layout-main">
-        <SideNav />
+        <SideNav isCollapsed={isSideNavCollapsed} onToggle={toggleSideNav} />
         <main className="main-content">
           {children}
           <ToastContainer

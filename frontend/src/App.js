@@ -9,7 +9,8 @@ import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
-import Performance from './pages/Performance';
+import TeamPerformance from './pages/TeamPerformance';
+import MyPerformance from './pages/MyPerformance';
 import { USER_ROLES } from './utils/constants';
 import './App.css';
 
@@ -90,11 +91,21 @@ function App() {
             }
           />
           <Route
-            path="/performance"
+            path="/team-performance"
             element={
-              <PrivateRoute>
+              <PrivateRoute requiredRole={[USER_ROLES.ADMIN, USER_ROLES.MANAGER]}>
                 <Layout>
-                  <Performance />
+                  <TeamPerformance />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/my-performance"
+            element={
+              <PrivateRoute requiredRole={USER_ROLES.MEMBER}>
+                <Layout>
+                  <MyPerformance />
                 </Layout>
               </PrivateRoute>
             }

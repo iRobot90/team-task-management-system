@@ -26,9 +26,9 @@ export const API_ENDPOINTS = {
 
 // Task Status Options (aligned with backend Task.STATUS_CHOICES)
 export const TASK_STATUS = {
-  TODO: 'pending',
-  IN_PROGRESS: 'in_progress',
-  DONE: 'completed',
+  TODO: 'todo',
+  IN_PROGRESS: 'in_progress', 
+  DONE: 'done',
 };
 
 export const TASK_STATUS_LABELS = {
