@@ -5,6 +5,7 @@ import { USER_ROLES } from '../utils/constants';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import NotificationBell from './NotificationBell';
+import SideNav from './SideNav';
 import './Layout.css';
 
 const Layout = ({ children }) => {
@@ -75,20 +76,23 @@ const Layout = ({ children }) => {
         </div>
       </nav>
 
-      <main className="main-content">
-        {children}
-        <ToastContainer 
-          position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-        />
-      </main>
+      <div className="layout-main">
+        <SideNav />
+        <main className="main-content">
+          {children}
+          <ToastContainer
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
+        </main>
+      </div>
     </div>
   );
 };
