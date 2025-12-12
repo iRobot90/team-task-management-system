@@ -1,146 +1,205 @@
-import React from 'react';
-import { TASK_STATUS_LABELS } from '../utils/constants';
-
-const STATUS_COLORS = {
-  todo: 'bg-gray-200 text-gray-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  done: 'bg-green-100 text-green-800',
-};
+import React, { useState } from 'react';
+import { format, parseISO, isBefore } from 'date-fns';
+import { TASK_STATUS, TASK_STATUS_LABELS } from '../utils/constants';
+import {
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Trash2,
+  User,
+  Calendar,
+} from 'lucide-react';
 
 const TaskCard = ({
   task,
+  currentUserId,
+  isManagerOrAdmin,
+  onStatusChange,
   onEdit,
   onDelete,
-  onToggleComments,
-  commentsOpen,
-  canManageTasks,
-  isMember,
-  onAssign,
-  onStatusChange,
+  onComment,
+  comments = [],
+  commentsOpen = false,
+  commentDrafts = {},
+  setCommentDrafts,
+  onAddComment,
   updatingId,
-  members,
-  comments,
-  commentDraft,
-  onPostComment,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [localComment, setLocalComment] = useState(commentDrafts[task.id] || '');
+
+  const assignee = task.assignee_detail || task.assignee;
+  const creator = task.created_by_detail || task.created_by;
+
+  const canEdit = isManagerOrAdmin || (assignee && String(assignee.id) === String(currentUserId));
+  const canDelete = isManagerOrAdmin;
+  const canUpdateStatus = isManagerOrAdmin || (assignee && String(assignee.id) === String(currentUserId));
+  const isOverdue = task.deadline && isBefore(parseISO(task.deadline), new Date()) && task.status !== TASK_STATUS.DONE;
+  const isUpdating = updatingId === task.id;
+
+  const getStatusClass = (status) => {
+    switch (status) {
+      case TASK_STATUS.DONE: return 'status-done';
+      case TASK_STATUS.IN_PROGRESS: return 'status-in-progress';
+      default: return 'status-todo';
+    }
+  };
+
+  const handleStatusChange = (e) => {
+    e.stopPropagation();
+    onStatusChange(task.id, e.target.value);
+  };
+
+  const handleEdit = (e) => {
+    e.stopPropagation();
+    onEdit(task);
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    onDelete(task.id);
+  };
+
+  const toggleComments = (e) => {
+    e.stopPropagation();
+    onComment(task.id);
+  };
+
+  const handleCommentSubmit = (e) => {
+    e.preventDefault();
+    if (localComment.trim()) {
+      onAddComment(task.id);
+      setLocalComment('');
+    }
+  };
+
+  const updateCommentDraft = (value) => {
+    setLocalComment(value);
+    setCommentDrafts(prev => ({ ...prev, [task.id]: value }));
+  };
+
   return (
-    <article className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900 truncate">{task.title}</h3>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-3">{task.description}</p>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm text-gray-600 items-center">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded ${STATUS_COLORS[task.status] || STATUS_COLORS.todo}`}>
-              {TASK_STATUS_LABELS[task.status] || task.status}
-            </span>
-
-            {task.assignee_detail && (
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A9 9 0 1118.88 6.196 9 9 0 015.12 17.804z"/></svg>
-                <span>Assigned: <strong className="text-gray-800">{task.assignee_detail.email}</strong></span>
+    <div className={`task-card ${isExpanded ? 'expanded' : ''} ${isOverdue ? 'overdue' : ''}`}>
+      <div className="task-card-header" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="task-main-info">
+          <div className="task-title-section">
+            <h4 className="task-title">{task.title}</h4>
+            <div className="task-badges">
+              {isOverdue && <span className="overdue-badge">Overdue</span>}
+              <span className={`status-badge ${getStatusClass(task.status)}`}>
+                {TASK_STATUS_LABELS[task.status] || task.status}
               </span>
-            )}
-
-            {/* Inline assign for managers/admins */}
-            {canManageTasks && (
-              <div className="assign-row mt-2">
-                <select
-                  className="assign-select"
-                  value={task.assignee || ''}
-                  onChange={(e) => onAssign && onAssign(e.target.value)}
-                  disabled={updatingId === task.id}
-                >
-                  <option value="">Unassigned</option>
-                  {(members || []).map((m) => (
-                    <option key={m.id} value={m.id}>{m.email}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Status select for members (quick update) */}
-            {isMember && (
-              <div className="status-row mt-2">
-                <label className="mr-2">Status</label>
-                <select
-                  value={task.status}
-                  onChange={(e) => onStatusChange && onStatusChange(e.target.value)}
-                  disabled={updatingId === task.id}
-                >
-                  <option value="todo">Todo</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="done">Done</option>
-                </select>
-              </div>
-            )}
-
-            {task.created_by_detail && (
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zM6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>
-                <span>Created by: <strong className="text-gray-800">{task.created_by_detail.email}</strong></span>
-              </span>
-            )}
-
+            </div>
+          </div>
+          <div className="task-meta">
             {task.deadline && (
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span>Deadline: <strong className="text-gray-800">{new Date(task.deadline).toLocaleDateString()}</strong></span>
+              <span className="meta-item">
+                <Calendar size={14} />
+                {format(parseISO(task.deadline), 'MMM d, yyyy')}
+                {task.deadline_time && ` at ${task.deadline_time}`}
+              </span>
+            )}
+            <span className="meta-item">
+              <User size={14} />
+              <span>
+                <span className="label">Assigned To:</span>{' '}
+                <span>
+                  {assignee
+                    ? assignee.name || assignee.email || assignee.username
+                    : 'Unassigned'}
+                </span>
+              </span>
+            </span>
+            {creator && (
+              <span className="meta-item">
+                <User size={14} />
+                <span>
+                  <span className="label">Created By:</span>{' '}
+                  <span>
+                    {creator.name || creator.email || creator.username}
+                  </span>
+                </span>
               </span>
             )}
           </div>
         </div>
-
-        <div className="flex-shrink-0 ml-2 flex flex-col items-end gap-2">
-          <div className="flex gap-2">
-            {canManageTasks && (
-              <>
-                <button
-                  onClick={() => onEdit && onEdit(task)}
-                  className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => onDelete && onDelete()}
-                  className="px-3 py-1 text-sm rounded bg-red-100 text-red-700 hover:bg-red-200"
-                >
-                  Delete
-                </button>
-              </>
-            )}
-          </div>
-
-          <div>
-            <button
-              onClick={() => onToggleComments && onToggleComments()}
-              className="text-sm text-gray-600 hover:underline"
-            >
-              {commentsOpen ? 'Hide comments' : 'View comments'}
-            </button>
-          </div>
+        <div className="task-actions-header">
+          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </div>
 
-      {/* comments area */}
-      {commentsOpen && (
-        <div className="comments-box mt-3">
-          {(comments || []).map((c) => (
-            <div key={c.id} className="comment">
-              <div className="comment-meta">
-                <div>{c.author_detail?.email}</div>
-                <div className="muted">{new Date(c.created_at).toLocaleString()}</div>
-              </div>
-              <div className="comment-body">{c.content}</div>
+      {isExpanded && (
+        <div className="task-details">
+          <div className="task-description">
+            <h5>Description</h5>
+            <p>{task.description || 'No description provided.'}</p>
+          </div>
+          
+          <div className="task-meta-details">
+            <div>
+              <span className="label">Created:</span>
+              <span>{format(parseISO(task.created_at), 'MMM d, yyyy')}</span>
             </div>
-          ))}
-          <div className="comment-input mt-2">
-            <input value={commentDraft || ''} onChange={(e) => onPostComment && onPostComment(e.target.value)} placeholder="Add a comment..." />
-            <button onClick={() => onPostComment && onPostComment(commentDraft)} className="px-3 py-1 rounded bg-indigo-600 text-white">Post</button>
+            {task.updated_at && task.updated_at !== task.created_at && (
+              <div>
+                <span className="label">Last Updated:</span>
+                <span>{format(parseISO(task.updated_at), 'MMM d, yyyy')}</span>
+              </div>
+            )}
+            {assignee && (
+              <div>
+                <span className="label">Assigned To:</span>
+                <span>{assignee.name || assignee.email || assignee.username}</span>
+              </div>
+            )}
+            {creator && (
+              <div>
+                <span className="label">Created By:</span>
+                <span>{creator.name || creator.email || creator.username}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="task-actions">
+            {canUpdateStatus && (
+              <select
+                value={task.status}
+                onChange={handleStatusChange}
+                disabled={isUpdating}
+                className="status-select"
+              >
+                {Object.values(TASK_STATUS).map(status => (
+                  <option key={status} value={status}>
+                    {TASK_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </select>
+            )}
+            
+            {isManagerOrAdmin && (
+              <div className="manager-actions">
+                <button 
+                  onClick={handleEdit}
+                  className="btn btn-edit"
+                >
+                  <Edit size={14} />
+                  Edit
+                </button>
+                {canDelete && (
+                  <button 
+                    onClick={handleDelete}
+                    className="btn btn-delete"
+                  >
+                    <Trash2 size={14} />
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
-    </article>
+    </div>
   );
 };
-
 export default TaskCard;

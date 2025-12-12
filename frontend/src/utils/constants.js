@@ -24,15 +24,15 @@ export const API_ENDPOINTS = {
   ROLES: '/roles/',
 };
 
-// Task Status Options
+// Task Status Options (aligned with backend Task.STATUS_CHOICES)
 export const TASK_STATUS = {
-  TODO: 'todo',
+  TODO: 'pending',
   IN_PROGRESS: 'in_progress',
-  DONE: 'done',
+  DONE: 'completed',
 };
 
 export const TASK_STATUS_LABELS = {
-  [TASK_STATUS.TODO]: 'Todo',
+  [TASK_STATUS.TODO]: 'To Do',
   [TASK_STATUS.IN_PROGRESS]: 'In Progress',
   [TASK_STATUS.DONE]: 'Done',
 };

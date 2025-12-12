@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
+import Performance from './pages/Performance';
 import { USER_ROLES } from './utils/constants';
 import './App.css';
 
@@ -84,6 +85,16 @@ function App() {
               <PrivateRoute>
                 <Layout>
                   <Profile />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/performance"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Performance />
                 </Layout>
               </PrivateRoute>
             }

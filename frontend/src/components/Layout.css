@@ -4,6 +4,11 @@
   flex-direction: column;
 }
 
+.layout-main {
+  display: flex;
+  flex: 1;
+}
+
 /* Navbar Container */
 .navbar {
   background: #0f172a;
@@ -82,6 +87,10 @@
 
 /* Mobile Responsive */
 @media (max-width: 900px) {
+  .layout-main {
+    flex-direction: column;
+  }
+
   .navbar {
     flex-direction: column;
     align-items: flex-start;

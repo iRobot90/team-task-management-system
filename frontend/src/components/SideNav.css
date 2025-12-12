@@ -1,0 +1,120 @@
+.sidenav {
+  width: 260px;
+  background: #111827;
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 1rem;
+  border-radius: 0.75rem;
+  margin-right: 1.5rem;
+}
+
+.sidenav-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.sidenav-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidenav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(31, 41, 55, 0.8);
+  margin-bottom: 1.25rem;
+}
+
+.sidenav-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #1f2937;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.sidenav-user-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidenav-user-email {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidenav-user-role {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.sidenav-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.sidenav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.5rem;
+  color: #9ca3af;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidenav-link:hover {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+.sidenav-link.active {
+  background: #2563eb;
+  color: #f9fafb;
+}
+
+.sidenav-icon {
+  flex-shrink: 0;
+}
+
+.sidenav-label {
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .sidenav {
+    width: 72px;
+    padding: 1rem 0.5rem;
+    align-items: center;
+  }
+
+  .sidenav-user-meta,
+  .sidenav-label {
+    display: none;
+  }
+
+  .sidenav-user {
+    flex-direction: column;
+  }
+
+  .sidenav-link {
+    justify-content: center;
+  }
+}

@@ -9,6 +9,10 @@ import './Tasks.css';
 
 const Tasks = () => {
   const { user } = useAuth();
+
+  /* -------------------------
+     State
+     -------------------------*/
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +25,7 @@ const Tasks = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [members, setMembers] = useState([]);
   const [updatingId, setUpdatingId] = useState(null);
+
   const [commentDrafts, setCommentDrafts] = useState({});
   const [commentsOpen, setCommentsOpen] = useState({});
   const [commentsData, setCommentsData] = useState({});
@@ -31,7 +36,7 @@ const Tasks = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    status: TASK_STATUS.TODO,
+    status: TASK_STATUS?.TODO || 'todo',
     deadline: '',
     assignee: '',
   });
@@ -46,14 +51,93 @@ const Tasks = () => {
     }
   }, [filterStatus, filterAssignee]);
 
-  // Filter tasks based on selected filters
+  const canManageTasks =
+    user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.MANAGER;
+
+  /* -------------------------
+     Derived values
+     -------------------------*/
+  const filterByDateRange = (task) => {
+    if (filterDateRange === 'all') return true;
+    if (!task.created_at) return true;
+
+    const created = new Date(task.created_at);
+    const now = new Date();
+    const diffMs = now - created;
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    if (filterDateRange === 'today') {
+      return created.toDateString() === now.toDateString();
+    }
+    if (filterDateRange === 'week') {
+      return diffDays <= 7;
+    }
+    if (filterDateRange === 'month') {
+      return diffDays <= 30;
+    }
+    return true;
+  };
+
   const filteredTasks = tasks.filter((task) => {
     const statusMatch = filterStatus === 'all' || task.status === filterStatus;
-    const assigneeMatch = filterAssignee === 'all' || task.assignee === filterAssignee;
-    return statusMatch && assigneeMatch;
+    const assigneeId = task.assignee ?? task.assignee_detail?.id;
+    const assigneeMatch =
+      filterAssignee === 'all' || String(assigneeId) === String(filterAssignee);
+    const searchMatch =
+      searchQuery === '' ||
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.description &&
+        task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const dateMatch = filterByDateRange(task);
+    return statusMatch && assigneeMatch && searchMatch && dateMatch;
   });
-  // Fetch data function
-  const fetchData = useCallback(async () => {
+
+  const metrics = computeTeamMetrics(filteredTasks, users);
+  const {
+    statusCounts,
+    perUser,
+    topPerformer,
+    unassigned,
+    tasksPerMember,
+    activeMembers,
+    totalTasks,
+  } = metrics;
+
+  const completionRate =
+    totalTasks > 0
+      ? (((statusCounts[TASK_STATUS.DONE] || 0) / totalTasks) * 100).toFixed(1)
+      : 0;
+
+  const overdueTasks = filteredTasks.filter(
+    (t) =>
+      t.deadline &&
+      new Date(t.deadline) < new Date() &&
+      t.status !== TASK_STATUS.DONE
+  ).length;
+
+  const completedTasksForAvg = filteredTasks.filter(
+    (t) => t.status === TASK_STATUS.DONE && t.updated_at && t.created_at
+  );
+  const avgCompletionTime =
+    completedTasksForAvg.length > 0
+      ? completedTasksForAvg.reduce(
+          (acc, t) =>
+            acc +
+            (new Date(t.updated_at) - new Date(t.created_at)) /
+              (1000 * 60 * 60 * 24),
+          0
+        ) / completedTasksForAvg.length
+      : 0;
+
+  const teamUtilization = Object.values(perUser).reduce(
+    (acc, member) => acc + (member[TASK_STATUS.IN_PROGRESS] || 0),
+    0
+  );
+
+  /* -------------------------
+     Data fetching
+     -------------------------*/
+  const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
@@ -62,79 +146,97 @@ const Tasks = () => {
       const data = await tasksAPI.getAll(params);
       setTasks(Array.isArray(data.results) ? data.results : data);
     } catch (err) {
-      setError('Failed to load data');
-      console.error(err);
+      console.error('fetchTasks error', err);
+      setError('Failed to load tasks');
     } finally {
       setLoading(false);
     }
   }, [canManageTasks]);
-  // Fetch data on component mount
-  // Setup WebSocket connection and notifications
+
+  const fetchCommentsForTask = async (taskId) => {
+    try {
+      const comments = await tasksAPI.listComments(taskId);
+      setCommentsData((prev) => ({ ...prev, [taskId]: comments }));
+    } catch (err) {
+      console.error('Failed to fetch comments', err);
+      setError('Failed to load comments');
+    }
+  };
+
+  /* -------------------------
+     Effects: mount + websocket
+     -------------------------*/
   useEffect(() => {
-    fetchData();
-    
-    // Connect to WebSocket
+    fetchTasks();
+
     if (user?.token) {
       webSocketService.connect(user.token);
-      
-      // Handle incoming notifications
+
       const handleNotification = (data) => {
-        if (data.type === 'task_assigned' || data.type === 'task_updated') {
-          // Show toast notification
-          toast.info(data.message, {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          });
-          
-          // Refresh tasks if needed
-          if (data.should_refresh) {
-            fetchData();
-          }
+        if (!data) return;
+        if (data.message) {
+          toast.info(data.message, { position: 'top-right', autoClose: 5000 });
         }
+        const notifType = data.type || data.notification_type;
+        const isTaskEvent =
+          typeof notifType === 'string' && notifType.startsWith('task_');
+        if (data.should_refresh || isTaskEvent) fetchTasks();
       };
-      
+
       const unsubscribe = webSocketService.onNotification(handleNotification);
-      
-      // Cleanup on unmount
+
       return () => {
-        unsubscribe();
+        if (unsubscribe) unsubscribe();
         webSocketService.disconnect();
       };
     }
-  }, [fetchData, user?.token]);
-  
-  if (loading) return <Loading message="Loading tasks..." />;
 
-  // Handle task status change
+    return () => {};
+  }, [fetchTasks, user?.token]);
+
+  /* -------------------------
+     Handlers
+     -------------------------*/
   const handleStatusChange = async (taskId, status) => {
     setUpdatingId(taskId);
+    setError('');
+    setSuccess('');
     try {
-      const task = tasks.find(t => t.id === taskId);
+      const task = tasks.find((t) => t.id === taskId);
       await tasksAPI.update(taskId, { status });
-      
-      // Emit notification for status change
+
       if (task) {
-        const message = `Task "${task.title}" status changed to ${TASK_STATUS_LABELS[status]}`;
-        await notificationsAPI.create({
-          type: 'task_updated',
-          message,
-          recipient: task.assignee,
-          task: taskId,
-        });
+        const message = `Task "${task.title}" status changed to ${TASK_STATUS_LABELS[status] || status}`;
+        try {
+          await notificationsAPI.create({
+            type: 'TASK_DONE',
+            message,
+            recipient: task.assignee?.id || null,
+            task: taskId,
+          });
+        } catch (e) {
+          console.warn('notification create failed', e);
+        }
       }
-      
-      setTasks(tasks.map(task =>
-        task.id === taskId ? { ...task, status } : task
-      ));
+
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, status } : t))
+      );
       setSuccess('Task status updated');
     } catch (err) {
+      console.error('handleStatusChange', err);
       setError('Failed to update task status');
     } finally {
       setUpdatingId(null);
+      setTimeout(() => setSuccess(''), 3000);
+    }
+  };
+
+  const toggleComments = async (taskId) => {
+    const isOpen = !commentsOpen[taskId];
+    setCommentsOpen((prev) => ({ ...prev, [taskId]: isOpen }));
+    if (isOpen && !commentsData[taskId]) {
+      await fetchCommentsForTask(taskId);
     }
   };
   const handleStatusChange = async (taskId, status) => {
@@ -329,149 +431,163 @@ const Tasks = () => {
     });
   };
 
-  // Toggle comments section
-const toggleComments = async (taskId) => {
-  const isOpen = !commentsOpen[taskId];
-  setCommentsOpen({ ...commentsOpen, [taskId]: isOpen });
-  
-  if (isOpen && !commentsData[taskId]) {
+  const handleAddComment = async (taskId) => {
+    const content = (commentDrafts[taskId] || '').trim();
+    if (!content) return;
     try {
-      const comments = await tasksAPI.listComments(taskId);
-      setCommentsData({ ...commentsData, [taskId]: comments });
+      await tasksAPI.addComment(taskId, content);
+      const updated = await tasksAPI.listComments(taskId);
+      setCommentsData((prev) => ({ ...prev, [taskId]: updated }));
+      setCommentDrafts((prev) => ({ ...prev, [taskId]: '' }));
+      setSuccess('Comment added');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to load comments');
+      console.error('handleAddComment', err);
+      setError('Failed to add comment');
     }
-  }
-};
-// Add a new comment
-const handleAddComment = async (taskId) => {
-  const content = commentDrafts[taskId]?.trim();
-  if (!content) return;
-  try {
-    await tasksAPI.addComment(taskId, content);
-    const updatedComments = await tasksAPI.listComments(taskId);
-    setCommentsData({ ...commentsData, [taskId]: updatedComments });
-    setCommentDrafts({ ...commentDrafts, [taskId]: '' });
-  } catch (err) {
-    setError('Failed to add comment');
-  }
-};
-// Handle form input changes
-const handleChange = (e) => {
-  const { name, value } = e.target;
-  setFormData(prev => ({ ...prev, [name]: value }));
-};
+  };
 
-// Reset form data
-const resetForm = () => {
-  setFormData({
-    title: '',
-    description: '',
-    status: TASK_STATUS.TODO,
-    deadline: '',
-    assignee: '',
-  });
-};
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-// Handle modal close
-const handleCloseCreateModal = () => {
-  resetForm();
-  setShowCreateModal(false);
-  setShowEditModal(false);
-  setError('');
-  setSuccess('');
-};
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      status: TASK_STATUS.TODO,
+      deadline: '',
+      assignee: '',
+    });
+    setSelectedTask(null);
+    setCreateError('');
+    setCreateSuccess('');
+  };
 
-// Handle form submission
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Basic validation
-  if (!formData.title.trim()) {
-    setError('Title is required');
-    return;
-  }
+  const handleCloseCreateModal = () => {
+    resetForm();
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setError('');
+    setSuccess('');
+  };
 
-  try {
-    const taskData = {
-      title: formData.title.trim(),
-      description: formData.description.trim(),
-      status: formData.status,
-      deadline: formData.deadline || null,
-      assignee: formData.assignee || null,
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setCreateError('');
+    setCreateSuccess('');
 
-    if (selectedTask) {
-      const updatedTask = await tasksAPI.update(selectedTask.id, taskData);
-      setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-      setSuccess('Task updated successfully');
-      setShowEditModal(false);
-    } else {
-      const newTask = await tasksAPI.create(taskData);
-      setTasks([newTask, ...tasks]);
-      setSuccess('Task created successfully');
-      handleCloseCreateModal();
+    if (!formData.title || !formData.title.trim()) {
+      setCreateError('Title is required');
+      return;
     }
-  } catch (err) {
-    console.error('Error submitting task:', err);
-    setError(err.response?.data?.error || 'Failed to save task');
-  }
-};
 
-// Handle task edit
-const handleEdit = (task) => {
-  setFormData({
-    title: task.title,
-    description: task.description || '',
-    status: task.status,
-    deadline: task.deadline ? task.deadline.split('T')[0] : '',
-    assignee: task.assignee || '',
-  });
-  setSelectedTask(task);
-  setShowEditModal(true);
-};
+    try {
+      setCreating(true);
 
-// Handle task assignment
-const handleAssign = async (taskId, assigneeId) => {
-  try {
-    const task = tasks.find(t => t.id === taskId);
-    
-    if (assigneeId) {
-      await tasksAPI.assign(taskId, assigneeId);
-      
-      // Emit notification for assignment
-      if (task) {
-        const message = `You've been assigned to task: ${task.title}`;
-        await notificationsAPI.create({
-          type: 'task_assigned',
-          message,
-          recipient: assigneeId,
-          task: taskId,
-        });
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description?.trim() || '',
+        status: formData.status || TASK_STATUS.TODO,
+        deadline: formData.deadline
+          ? new Date(formData.deadline).toISOString()
+          : null,
+        assignee: formData.assignee || null,
+      };
+
+      if (selectedTask) {
+        const updated = await tasksAPI.update(selectedTask.id, payload);
+        setTasks((prev) =>
+          prev.map((t) => (t.id === updated.id ? updated : t))
+        );
+        setCreateSuccess('Task updated successfully');
+        setShowEditModal(false);
+      } else {
+        const created = await tasksAPI.create(payload);
+        setTasks((prev) => [created, ...prev]);
+        setCreateSuccess('Task created successfully');
+        setShowCreateModal(false);
       }
-    } else {
-      await tasksAPI.unassign(taskId);
+      resetForm();
+      setTimeout(() => setCreateSuccess(''), 3000);
+    } catch (err) {
+      console.error('handleSubmit', err);
+      setCreateError(err?.response?.data?.error || 'Failed to save task');
+    } finally {
+      setCreating(false);
     }
-    setTasks(tasks.map(task => task.id === taskId ? { ...task, assignee: assigneeId } : task));
-    setSuccess('Task assigned successfully');
-  } catch (err) {
-    setError('Failed to assign task');
-  }
-};
+  };
 
-// Handle task deletion
-const handleDelete = async (taskId) => {
-  if (window.confirm('Are you sure you want to delete this task?')) {
+  const handleEdit = (task) => {
+    setFormData({
+      title: task.title || '',
+      description: task.description || '',
+      status: task.status || TASK_STATUS.TODO,
+      deadline: task.deadline ? task.deadline.split('T')[0] : '',
+      assignee: task.assignee ?? task.assignee_detail?.id ?? '',
+    });
+    setSelectedTask(task);
+    setShowEditModal(true);
+  };
+
+  const handleAssign = async (taskId, assigneeId) => {
+    setError('');
+    setSuccess('');
+    try {
+      const task = tasks.find((t) => t.id === taskId);
+      if (assigneeId) {
+        await tasksAPI.assign(taskId, assigneeId);
+        if (task) {
+          const message = `You've been assigned to task: ${task.title}`;
+          try {
+            await notificationsAPI.create({
+              type: 'TASK_ASSIGNED',
+              message,
+              recipient: assigneeId,
+              task: taskId,
+            });
+          } catch (e) {
+            console.warn('notification create failed', e);
+          }
+        }
+      } else {
+        await tasksAPI.unassign(taskId);
+      }
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, assignee: { id: assigneeId } } : t))
+      );
+      setSuccess('Task assignment updated');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('handleAssign', err);
+      setError('Failed to assign task');
+    }
+  };
+
+  const handleDelete = async (taskId) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    setError('');
+    setSuccess('');
     try {
       await tasksAPI.delete(taskId);
-      setTasks(tasks.filter(t => t.id !== taskId));
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
       setSuccess('Task deleted successfully');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error('handleDelete', err);
       setError('Failed to delete task');
     }
-  }
-};
+  };
 
+  const handleBulkSelect = (taskId) => {
+    setSelectedTasks((prev) =>
+      prev.includes(taskId)
+        ? prev.filter((id) => id !== taskId)
+        : [...prev, taskId]
+    );
+  };
 
   const statusCounts = tasks.reduce(
     (acc, t) => {
@@ -626,208 +742,376 @@ const handleDelete = async (taskId) => {
                 )}
               </div>
 
-              {canManageTasks && members.length > 0 && (
-                <div className="filter-group">
-                  <div className="filter-label">
-                    <Users size={16} />
-                    <span>Assignee</span>
-                  </div>
-                  <div className="select-wrapper">
-                    <select
-                      value={filterAssignee}
-                      onChange={(e) => setFilterAssignee(e.target.value)}
-                      className="select-input"
-                    >
-                      <option value="all">All Members</option>
-                      {members.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.email}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="select-arrow" />
-                  </div>
-                </div>
-              )}
-            </div>
-          </nav>
-        </aside>
-
-        {/* Tasks List */}
-        <div className="tasks-content">
-          <div className="tasks-header">
-            <h2>
-              {filterStatus === 'all' ? 'All Tasks' : `${TASK_STATUS_LABELS[filterStatus] || 'Tasks'}`}
-              {filterAssignee !== 'all' && ` (${members.find(m => m.id === filterAssignee)?.email || 'Assigned'})`}
-            </h2>
-            <div className="task-count">{filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}</div>
-          </div>
-
-          {error && <div className="alert alert-error">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
-
-          {filteredTasks.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-state-icon">📭</div>
-              <h3>No tasks found</h3>
-              <p>Try adjusting your filters or create a new task to get started.</p>
-              {canManageTasks && (
-                <button 
-                  className="btn-primary" 
-                  onClick={() => setShowCreateModal(true)}
-                >
-                  <Plus size={16} /> Create Task
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="task-grid">
-              {filteredTasks.map((task) => (
-                <div key={task.id} className="task-card">
-                  <div className="task-card-header">
-                    <div className="task-card-title">
-                      <h3>{task.title}</h3>
-                      <span className={`status-badge status-${task.status}`}>
-                        {TASK_STATUS_LABELS[task.status]}
-                      </span>
+              {/* Advanced Filters */}
+              <div className="filters-section">
+                <h4>
+                  <Filter size={16} />
+                  Advanced Filters
+                </h4>
+                <div className="filter-controls">
+                  <div className="filter-group">
+                    <label>Search</label>
+                    <div className="search-input-wrapper">
+                      <Search size={14} className="search-icon" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search tasks..."
+                        className="search-input"
+                      />
                     </div>
-                    {canManageTasks && (
-                      <div className="task-actions">
-                        <button 
-                          className="icon-button" 
-                          onClick={() => handleEdit(task)}
-                          aria-label="Edit task"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          className="icon-button danger" 
-                          onClick={() => handleDelete(task.id)}
-                          aria-label="Delete task"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
                   </div>
-                  
-                  {task.description && (
-                    <div className="task-description">
-                      <p>{task.description}</p>
+
+                  <div className="filter-group">
+                    <label>Status</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="filter-select"
+                    >
+                      <option value="all">All Status</option>
+                      <option value={TASK_STATUS.TODO}>Todo</option>
+                      <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
+                      <option value={TASK_STATUS.DONE}>Done</option>
+                    </select>
+                  </div>
+
+                  {canManageTasks && (
+                    <div className="filter-group">
+                      <label>Assignee</label>
+                      <select
+                        value={filterAssignee}
+                        onChange={(e) => setFilterAssignee(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="all">All Members</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name || user.email}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
-                  
-                  <div className="task-meta">
-                    {task.assignee_detail && (
-                      <div className="meta-item">
-                        <User size={14} />
-                        <span>{task.assignee_detail.email}</span>
-                      </div>
-                    )}
-                    {task.deadline && (
-                      <div className="meta-item">
-                        <Calendar size={14} />
-                        <span>{new Date(task.deadline).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="task-actions-row">
-                    {user?.role_name === USER_ROLES.MEMBER && (
-                      <div className="status-selector">
-                        <select
-                          value={task.status}
-                          onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                          disabled={updatingId === task.id}
-                          className="status-select"
-                        >
-                          <option value={TASK_STATUS.TODO}>Mark as Todo</option>
-                          <option value={TASK_STATUS.IN_PROGRESS}>Mark as In Progress</option>
-                          <option value={TASK_STATUS.DONE}>Mark as Done</option>
-                        </select>
-                      </div>
-                    )}
-
-                    {canManageTasks && members.length > 0 && (
-                      <div className="assign-selector">
-                        <div className="select-wrapper">
-                          <select
-                            value={task.assignee || ''}
-                            onChange={(e) => handleAssign(task.id, e.target.value)}
-                            className="select-input"
-                          >
-                            <option value="">Assign to...</option>
-                            {members.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.email}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown size={16} className="select-arrow" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Comments Section */}
-                  <div className="comments-section">
-                    <button 
-                      className="comments-toggle"
-                      onClick={() => toggleComments(task.id)}
-                      aria-expanded={!!commentsOpen[task.id]}
+                  <div className="filter-group">
+                    <label>Date Range</label>
+                    <select
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      className="filter-select"
                     >
-                      <MessageSquare size={16} />
-                      <span>{commentsOpen[task.id] ? 'Hide comments' : 'Show comments'}</span>
-                      <span className="comment-count">
-                        {commentsData[task.id]?.length || 0}
-                      </span>
-                      {commentsOpen[task.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    </button>
-                    
-                    {commentsOpen[task.id] && (
-                      <div className="comments-box">
-                        <div className="comments-list">
-                          {commentsData[task.id]?.length > 0 ? (
-                            commentsData[task.id].map((comment) => (
-                              <div key={comment.id} className="comment">
-                                <div className="comment-header">
-                                  <span className="comment-author">{comment.author_detail?.email}</span>
-                                  <span className="comment-time">
-                                    {new Date(comment.created_at).toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="comment-content">{comment.content}</div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="no-comments">No comments yet</div>
-                          )}
-                        </div>
-                        
-                        <div className="comment-input-container">
-                          <input
-                            type="text"
-                            placeholder="Add a comment..."
-                            value={commentDrafts[task.id] || ''}
-                            onChange={(e) =>
-                              setCommentDrafts({ ...commentDrafts, [task.id]: e.target.value })
-                            }
-                            onKeyPress={(e) => e.key === 'Enter' && handleAddComment(task.id)}
-                            className="comment-input"
-                          />
-                          <button 
-                            onClick={() => handleAddComment(task.id)}
-                            className="comment-submit"
-                            disabled={!commentDrafts[task.id]?.trim()}
-                          >
-                            Post
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                      <option value="today">Today</option>
+                      <option value="week">This Week</option>
+                      <option value="month">This Month</option>
+                      <option value="all">All Time</option>
+                    </select>
                   </div>
                 </div>
-              ))}
+
+                <div className="filter-actions">
+                  <button onClick={handleExport} className="btn btn-outline btn-sm">
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Team Performance Insights */}
+              {Object.keys(perUser).length > 0 && (
+                <div id="team-performance" className="productivity-section">
+                  <h4>
+                    <Users size={16} />
+                    Team Performance Insights
+                  </h4>
+
+                  {/* Top Performer */}
+                  {topPerformer && (
+                    <div className="top-performer-card">
+                      <div className="performer-header">
+                        <CheckCircle size={14} />
+                        <span>Top Performer</span>
+                      </div>
+                      <div className="performer-info">
+                        <strong>
+                          {topPerformer.user.email ||
+                            topPerformer.user.username ||
+                            'Team Member'}
+                        </strong>
+                        <div className="performer-stats">
+                          <span>{topPerformer.completed} completed</span>
+                          <span>{topPerformer.completionRate}% rate</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Team Overview */}
+                  <div className="team-overview">
+                    <div className="overview-item">
+                      <span className="label">Tasks per Member</span>
+                      <span className="value">{tasksPerMember}</span>
+                    </div>
+                    <div className="overview-item">
+                      <span className="label">Active Members</span>
+                      <span className="value">{activeMembers}</span>
+                    </div>
+                    {unassigned.total > 0 && (
+                      <div className="overview-item">
+                        <span className="label">Unassigned</span>
+                        <span className="value">
+                          {unassigned.total} total
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Individual Performance */}
+                  <div className="productivity-list">
+                    {Object.values(perUser)
+                      .sort(
+                        (a, b) =>
+                          (b[TASK_STATUS.DONE] || 0) - (a[TASK_STATUS.DONE] || 0)
+                      )
+                      .map((entry) => {
+                        const completed = entry[TASK_STATUS.DONE] || 0;
+                        const active = entry[TASK_STATUS.IN_PROGRESS] || 0;
+                        const total = entry.total || 0;
+                        const completionPct =
+                          total > 0 ? (completed / total) * 100 : 0;
+                        const label =
+                          entry.user.email ||
+                          entry.user.username ||
+                          'Team Member';
+                        return (
+                          <div key={entry.user.id} className="productivity-item">
+                            <div className="member-info">
+                              <span className="member-email">{label}</span>
+                              <div className="progress-bar">
+                                <div
+                                  className="progress-fill"
+                                  style={{ width: `${completionPct}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="member-stats">
+                              <span className="stat">{total} total</span>
+                              <span className="stat done">{completed} done</span>
+                              <span className="stat progress">{active} active</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </aside>
+          )}
+
+          {/* Main Content */}
+          <main className="tasks-main">
+            <div className="main-header">
+              <div className="header-content">
+                <div>
+                  <h2>{canManageTasks ? 'Team Tasks' : 'My Tasks'}</h2>
+                  <p className="header-subtitle">
+                    {canManageTasks
+                      ? 'Monitor and manage work across your team.'
+                      : 'View and update the tasks assigned to you.'}
+                  </p>
+                </div>
+                <div className="header-stats">
+                  <span className="stat-badge">{filteredTasks.length} tasks</span>
+                  {selectedTasks.length > 0 && (
+                    <span className="stat-badge selected">
+                      {selectedTasks.length} selected
+                    </span>
+                  )}
+                </div>
+              </div>
+              {error && <div className="alert alert-error">{error}</div>}
+              {success && <div className="alert alert-success">{success}</div>}
+            </div>
+
+            {/* Filters for Members */}
+            {!canManageTasks && (
+              <div className="member-filters-bar">
+                <div className="filter-group">
+                  <label>Status</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Status</option>
+                    <option value={TASK_STATUS.TODO}>To Do</option>
+                    <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
+                    <option value={TASK_STATUS.DONE}>Done</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label>Search</label>
+                  <div className="search-input-wrapper">
+                    <Search size={14} className="search-icon" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search tasks..."
+                      className="search-input"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Manager Filters Bar */}
+            {canManageTasks && (
+              <div className="manager-filters-bar">
+                <div className="filter-group">
+                  <label>Search</label>
+                  <div className="search-input-wrapper">
+                    <Search size={14} className="search-icon" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search tasks..."
+                      className="search-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="filter-group">
+                  <label>Status</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Status</option>
+                    <option value={TASK_STATUS.TODO}>To Do</option>
+                    <option value={TASK_STATUS.IN_PROGRESS}>In Progress</option>
+                    <option value={TASK_STATUS.DONE}>Done</option>
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label>Assignee</label>
+                  <select
+                    value={filterAssignee}
+                    onChange={(e) => setFilterAssignee(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Members</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.email || u.username || 'Unknown'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label>Date Range</label>
+                  <select
+                    value={filterDateRange}
+                    onChange={(e) => setFilterDateRange(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Bulk Actions */}
+            {canManageTasks && selectedTasks.length > 0 && (
+              <div className="bulk-actions-bar">
+                <div className="bulk-info">
+                  <span>{selectedTasks.length} task(s) selected</span>
+                </div>
+                <div className="bulk-buttons">
+                  <button
+                    onClick={() => setSelectedTasks([])}
+                    className="btn btn-outline btn-sm"
+                  >
+                    Clear Selection
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="btn btn-delete btn-sm"
+                  >
+                    <Trash2 size={14} />
+                    Delete Selected
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Task List */}
+            <div className="tasks-list">
+              {filteredTasks.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">
+                    <CheckCircle size={48} />
+                  </div>
+                  <h3>No tasks found</h3>
+                  <p>
+                    {filterStatus !== 'all' || filterAssignee !== 'all' || searchQuery
+                      ? 'No tasks match your current filters.'
+                      : canManageTasks
+                      ? 'Create your first task to get started with your team.'
+                      : 'No tasks have been assigned to you yet.'}
+                  </p>
+                  {canManageTasks && !filterStatus && !filterAssignee && !searchQuery && (
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="btn btn-primary"
+                    >
+                      <Plus size={16} />
+                      Create First Task
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {filteredTasks.map((task) => (
+                    <div key={task.id} className="task-wrapper">
+                      {canManageTasks && (
+                        <div className="bulk-select-wrapper">
+                          <input
+                            type="checkbox"
+                            checked={selectedTasks.includes(task.id)}
+                            onChange={() => handleBulkSelect(task.id)}
+                            className="bulk-checkbox"
+                          />
+                        </div>
+                      )}
+                      <TaskCard
+                        task={task}
+                        currentUserId={user?.id}
+                        isManagerOrAdmin={canManageTasks}
+                        onStatusChange={handleStatusChange}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onAssign={canManageTasks ? handleAssign : undefined}
+                        onComment={toggleComments}
+                        comments={commentsData[task.id] || []}
+                        commentsOpen={commentsOpen[task.id]}
+                        commentDrafts={commentDrafts}
+                        setCommentDrafts={setCommentDrafts}
+                        onAddComment={handleAddComment}
+                        updatingId={updatingId}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1149,7 +1433,7 @@ const handleDelete = async (taskId) => {
           </div>
         </form>
       </Modal>
-    </div>
+    </>
   );
 };
 
