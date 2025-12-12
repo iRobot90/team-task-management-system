@@ -7,6 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model"""
 
     role_display = serializers.CharField(source="get_role_display", read_only=True)
+    role = serializers.ChoiceField(choices=User.Role.choices, required=False)
     password = serializers.CharField(
         write_only=True, required=False, validators=[validate_password]
     )
@@ -88,6 +89,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         role_value = validated_data.pop("role", User.Role.MEMBER)
         if role_value not in {User.Role.MEMBER, User.Role.MANAGER}:
             role_value = User.Role.MEMBER
+            
+        # Set is_staff=True for all new members by default
+        is_staff = role_value == User.Role.MEMBER
+        
         user = User.objects.create_user(
             email=validated_data["email"],
             username=validated_data["username"],
@@ -96,8 +101,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             middle_name=validated_data.get("middle_name", ""),
             last_name=validated_data.get("last_name", ""),
             role=role_value,
+            is_staff=is_staff,  # Set is_staff based on role
         )
-        # Member should be staff by default per requirements
         if role_value == User.Role.MEMBER:
             user.is_staff = True
         user.save()
