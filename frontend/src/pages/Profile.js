@@ -29,6 +29,12 @@ const Profile = () => {
     try {
       setLoading(true);
       const data = await usersAPI.getProfile();
+      console.log('Profile data fetched:', data);
+      console.log('Profile role field:', data.role);
+      console.log('Profile role_name field:', data.role_name);
+      console.log('Profile phone field:', data.phone);
+      console.log('Profile phone field type:', typeof data.phone);
+      console.log('Profile phone field length:', data.phone ? data.phone.length : 'null');
       setProfile(data);
       setFormData({
         first_name: data.first_name || '',
@@ -61,18 +67,111 @@ const Profile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Save button clicked - form submission started');
     setError('');
     setSuccess('');
+    setLoading(true); // Set loading to true when saving starts
+
+    // Validate form data
+    const firstName = formData.first_name.trim();
+    const lastName = formData.last_name.trim();
+    const phone = formData.phone.trim();
+    
+    console.log('Form submission validation:', { firstName, lastName, phone });
+    
+    if (!firstName && !lastName && !phone) {
+      setError('Please provide at least one field to update');
+      setLoading(false); // Reset loading if validation fails
+      return;
+    }
 
     try {
-      const data = await usersAPI.updateProfile(formData);
-      setProfile(data);
-      updateUser(data);
-      setSuccess('Profile updated successfully');
+      // Prepare the payload with only the fields that have values
+      const payload = {};
+      if (firstName) payload.first_name = firstName;
+      if (lastName) payload.last_name = lastName;
+      if (phone) payload.phone = phone;
+      
+      console.log('Final payload being sent:', payload);
+      
+      // Update profile
+      const response = await usersAPI.updateProfile(payload);
+      console.log('Profile update API response:', response);
+      
+      // Ensure we have a valid response
+      const updatedProfile = response.data || response;
+      
+      if (!updatedProfile || typeof updatedProfile !== 'object') {
+        throw new Error('Invalid response from server');
+      }
+      
+      console.log('Updated profile data:', updatedProfile);
+      
+      // Update all states with the new data immediately
+      setProfile(updatedProfile);
+      updateUser(updatedProfile);
+      
+      // Update form data with the latest values from server
+      setFormData({
+        first_name: updatedProfile.first_name || '',
+        last_name: updatedProfile.last_name || '',
+        phone: updatedProfile.phone || '',
+      });
+      
+      // Force a profile refresh to ensure we have the latest data
+      setTimeout(async () => {
+        try {
+          const freshProfile = await usersAPI.getProfile();
+          console.log('Fresh profile data after update:', freshProfile);
+          console.log('Fresh phone field:', freshProfile.phone);
+          // Update profile state again with fresh data
+          setProfile(freshProfile);
+          updateUser(freshProfile);
+          // Also update form data to ensure consistency
+          setFormData({
+            first_name: freshProfile.first_name || '',
+            last_name: freshProfile.last_name || '',
+            phone: freshProfile.phone || '',
+          });
+        } catch (refreshErr) {
+          console.error('Failed to refresh profile:', refreshErr);
+        }
+      }, 100);
+      
+      setSuccess('Profile updated successfully!');
       setEditing(false);
+      setLoading(false); // Reset loading after successful save
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+      
     } catch (err) {
-      setError('Failed to update profile');
-      console.error('Error updating profile:', err);
+      console.error('Profile update error:', err);
+      setLoading(false); // Reset loading on error
+      
+      // Enhanced error handling
+      if (err.response?.status === 400) {
+        const errorData = err.response.data;
+        if (typeof errorData === 'object') {
+          const errorMessages = Object.entries(errorData)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join(', ');
+          setError(`Validation error: ${errorMessages}`);
+        } else {
+          setError(`Validation error: ${errorData}`);
+        }
+      } else if (err.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+        setTimeout(() => window.location.href = '/login', 2000);
+      } else if (err.response?.status === 403) {
+        setError('You do not have permission to update this profile.');
+      } else if (err.response?.status >= 500) {
+        setError('Server error. Please try again later.');
+      } else if (err.request) {
+        setError('Network error. Please check your connection.');
+      } else {
+        setError('Failed to update profile. Please try again.');
+      }
     }
   };
 
@@ -120,12 +219,22 @@ const Profile = () => {
               </div>
               <div className="info-row">
                 <label>Phone:</label>
-                <span>{profile.phone || 'Not set'}</span>
+                <span>{(() => {
+                  const phoneValue = profile.phone;
+                  console.log('Phone display logic:', {
+                    phoneValue,
+                    phoneType: typeof phoneValue,
+                    phoneLength: phoneValue ? phoneValue.length : 'null',
+                    phoneTrimmed: phoneValue ? phoneValue.trim() : 'null',
+                    phoneDisplay: phoneValue ? phoneValue.trim() || 'Not set' : 'Not set'
+                  });
+                  return phoneValue ? phoneValue.trim() || 'Not set' : 'Not set';
+                })()}</span>
               </div>
               <div className="info-row">
                 <label>Role:</label>
                 <span className="role-badge">
-                  {USER_ROLE_LABELS[profile.role_name] || profile.role_name || 'No Role'}
+                  {USER_ROLE_LABELS[profile.role] || USER_ROLE_LABELS[profile.role_name] || profile.role_name || profile.role || 'No Role'}
                 </span>
               </div>
             </div>
@@ -201,9 +310,37 @@ const Profile = () => {
               />
             </div>
 
-            <button type="submit" className="btn-primary">
-              Save Changes
-            </button>
+            <div className="form-actions">
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={loading}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.7 : 1,
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor = '#2563eb';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor = '#3b82f6';
+                  }
+                }}
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </form>
         )}
       </div>

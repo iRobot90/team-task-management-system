@@ -17,13 +17,10 @@ import {
   Filter,
   Download,
   RefreshCw,
-  Zap,
   Star,
   Briefcase,
-  UserCheck,
   ArrowUp,
   ArrowDown,
-  MoreHorizontal,
   X
 } from 'lucide-react';
 import { tasksAPI, usersAPI, notificationsAPI } from '../api';
@@ -33,10 +30,10 @@ import { computeTeamMetrics, computeTopPerformer, getStatusColor, getUserDisplay
 import { TASK_STATUS, TASK_STATUS_LABELS } from '../utils/constants';
 import { storage } from '../utils/storage';
 import './Dashboard.css';
+import './Dashboard-calendar.css';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [statistics, setStatistics] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +42,15 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [recentTasks, setRecentTasks] = useState([]);
   const [overdueTasks, setOverdueTasks] = useState([]);
+  
+  // Filter state
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Calendar state
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Task creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -62,13 +68,8 @@ const Dashboard = () => {
 
   const isManager = user?.role === USER_ROLES.MANAGER || user?.role === USER_ROLES.ADMIN;
   const isMember = user?.role === USER_ROLES.MEMBER;
-  const isAdmin = user?.role === USER_ROLES.ADMIN;
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -80,12 +81,8 @@ const Dashboard = () => {
         return;
       }
       
-      // Fetch all data in parallel
-      const [statsData, tasksData, usersData] = await Promise.all([
-        tasksAPI.getStatistics().catch(err => {
-          console.error('Failed to fetch statistics:', err);
-          return { total: 0, todo: 0, in_progress: 0, done: 0 };
-        }),
+      // Fetch tasks and users data in parallel
+      const [tasksData, usersData] = await Promise.all([
         tasksAPI.getAll().catch(err => {
           console.error('Failed to fetch tasks:', err);
           return [];
@@ -97,9 +94,19 @@ const Dashboard = () => {
       ]);
 
       const allTasks = tasksData.results || tasksData || [];
-      setStatistics(statsData);
+      const allUsers = usersData.results || usersData || [];
+      
+      console.log('Dashboard data loaded:', {
+        allTasks: allTasks,
+        allUsers: allUsers,
+        tasksCount: allTasks.length,
+        usersCount: allUsers.length,
+        isManager,
+        isMember
+      });
+      
       setTasks(allTasks);
-      setUsers(usersData.results || usersData || []);
+      setUsers(allUsers);
       
       // Process recent and overdue tasks
       const now = new Date();
@@ -135,12 +142,22 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isManager, isMember]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   const fetchNotifications = async () => {
     try {
+      console.log('Fetching notifications...');
       const data = await notificationsAPI.list();
-      setNotifications(Array.isArray(data) ? data.slice(0, 5) : []);
+      console.log('Notifications API response:', data);
+      
+      const notificationsArray = Array.isArray(data) ? data : (data.results || []);
+      console.log('Processed notifications array:', notificationsArray);
+      
+      setNotifications(notificationsArray.slice(0, 5));
     } catch (err) {
       console.error('Error fetching notifications:', err);
     }
@@ -152,9 +169,118 @@ const Dashboard = () => {
     setRefreshing(false);
   };
 
-  // Calculate metrics
-  const metrics = tasks.length > 0 && users.length > 0 ? computeTeamMetrics(tasks, users) : null;
-  const topPerformer = metrics ? computeTopPerformer(metrics.perUser) : null;
+  // Calculate metrics with robust fallbacks
+  const calculateMetrics = useCallback(() => {
+    if (!tasks.length || !users.length) {
+      return {
+        totalTasks: 0,
+        statusCounts: {
+          [TASK_STATUS.TODO]: 0,
+          [TASK_STATUS.IN_PROGRESS]: 0,
+          [TASK_STATUS.DONE]: 0
+        },
+        completionRate: 0,
+        tasksPerMember: 0,
+        activeMembers: users.length || 0,
+        overdueTasks: 0,
+        perUser: {}
+      };
+    }
+
+    try {
+      const metrics = computeTeamMetrics(tasks, users);
+      console.log('Computed metrics:', metrics);
+      return metrics;
+    } catch (err) {
+      console.error('Error computing metrics:', err);
+      return {
+        totalTasks: tasks.length,
+        statusCounts: {
+          [TASK_STATUS.TODO]: tasks.filter(t => t.status === TASK_STATUS.TODO).length,
+          [TASK_STATUS.IN_PROGRESS]: tasks.filter(t => t.status === TASK_STATUS.IN_PROGRESS).length,
+          [TASK_STATUS.DONE]: tasks.filter(t => t.status === TASK_STATUS.DONE).length
+        },
+        completionRate: tasks.length > 0 ? (tasks.filter(t => t.status === TASK_STATUS.DONE).length / tasks.length) * 100 : 0,
+        tasksPerMember: users.length > 0 ? tasks.length / users.length : 0,
+        activeMembers: users.length,
+        overdueTasks: overdueTasks.length,
+        perUser: {}
+      };
+    }
+  }, [tasks, users, overdueTasks]);
+
+  const metrics = calculateMetrics();
+  const topPerformer = metrics && Object.keys(metrics.perUser || {}).length > 0 ? computeTopPerformer(metrics.perUser) : null;
+  
+  // Debug metrics calculation
+  console.log('Dashboard metrics debug:', {
+    tasksLength: tasks.length,
+    usersLength: users.length,
+    isManager,
+    isMember,
+    metrics: metrics,
+    topPerformer: topPerformer,
+    statusCounts: metrics?.statusCounts,
+    completionRate: metrics?.completionRate,
+    tasksPerMember: metrics?.tasksPerMember,
+    perUser: metrics?.perUser
+  });
+
+  // Filter functions
+  const handleFilter = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const applyFilters = (taskList) => {
+    return taskList.filter(task => {
+      const statusMatch = filterStatus === 'all' || task.status === filterStatus;
+      const priorityMatch = filterPriority === 'all' || task.priority === filterPriority;
+      return statusMatch && priorityMatch;
+    });
+  };
+
+  const filteredTasks = applyFilters(tasks);
+  const filteredRecentTasks = applyFilters(recentTasks);
+  
+  // Calculate filtered stats for member dashboard
+  const filteredStats = {
+    total: filteredTasks.length,
+    todo: filteredTasks.filter(t => t.status === TASK_STATUS.TODO).length,
+    inProgress: filteredTasks.filter(t => t.status === TASK_STATUS.IN_PROGRESS).length,
+    done: filteredTasks.filter(t => t.status === TASK_STATUS.DONE).length
+  };
+
+  // Download function
+  const handleDownload = () => {
+    const csvContent = [
+      ['Title', 'Status', 'Priority', 'Assignee', 'Deadline'],
+      ...filteredTasks.map(task => [
+        task.title,
+        TASK_STATUS_LABELS[task.status] || task.status,
+        task.priority,
+        getUserDisplayName(users.find(u => u.id === task.assignee) || { email: 'Unassigned' }),
+        task.deadline || 'No deadline'
+      ])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tasks-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    setSuccess('Tasks downloaded successfully!');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  // Calendar function
+  const toggleCalendar = () => {
+    setShowCalendar(!showCalendar);
+  };
 
   if (loading) {
     return (
@@ -298,6 +424,22 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="header-right">
+            {/* Action Buttons */}
+            <div className="action-buttons">
+              <button className="btn btn-outline modern" onClick={toggleCalendar} title="Calendar View">
+                <Calendar size={16} />
+              </button>
+              <button className="btn btn-outline modern" onClick={handleFilter} title="Filter Tasks">
+                <Filter size={16} />
+              </button>
+              <button className="btn btn-outline modern" onClick={handleDownload} title="Download Tasks">
+                <Download size={16} />
+              </button>
+              <button className="btn btn-outline modern" onClick={handleRefresh} disabled={refreshing} title="Refresh">
+                <RefreshCw size={16} className={refreshing ? 'spinning' : ''} />
+              </button>
+            </div>
+            
             {isManager && (
               <div className="quick-actions">
                 <button className="btn btn-primary modern" onClick={() => setShowCreateModal(true)}>
@@ -326,16 +468,28 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Member Stats - Integrated into Header */}
-      {isMember && (
-        <div className="member-stats-modern">
-          <div className="stats-grid-modern">
+      {/* Error State */}
+      {error && (
+        <div className="dashboard-error">
+          <AlertCircle size={48} />
+          <h3>Unable to load dashboard</h3>
+          <p>{error}</p>
+          <button onClick={fetchDashboardData} className="btn btn-primary">
+            <RefreshCw size={16} />
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Main Content */}
+      {!error && (
+        <div className="dashboard-content">
             <div className="stat-card-modern primary">
               <div className="stat-icon">
                 <Briefcase size={24} />
               </div>
               <div className="stat-content">
-                <div className="stat-number">{tasks?.length || 0}</div>
+                <div className="stat-number">{filteredStats.total}</div>
                 <div className="stat-label">Total Tasks</div>
               </div>
             </div>
@@ -345,7 +499,7 @@ const Dashboard = () => {
                 <Clock size={24} />
               </div>
               <div className="stat-content">
-                <div className="stat-number">{tasks?.filter(t => t.status === 'todo').length || 0}</div>
+                <div className="stat-number">{filteredStats.todo}</div>
                 <div className="stat-label">To Do</div>
               </div>
             </div>
@@ -355,7 +509,7 @@ const Dashboard = () => {
                 <Activity size={24} />
               </div>
               <div className="stat-content">
-                <div className="stat-number">{tasks?.filter(t => t.status === 'in_progress').length || 0}</div>
+                <div className="stat-number">{filteredStats.inProgress}</div>
                 <div className="stat-label">In Progress</div>
               </div>
             </div>
@@ -365,12 +519,11 @@ const Dashboard = () => {
                 <CheckCircle size={24} />
               </div>
               <div className="stat-content">
-                <div className="stat-number">{tasks?.filter(t => t.status === 'done').length || 0}</div>
+                <div className="stat-number">{filteredStats.done}</div>
                 <div className="stat-label">Completed</div>
               </div>
             </div>
           </div>
-        </div>
       )}
 
       {/* Manager Specific Features */}
@@ -412,7 +565,7 @@ const Dashboard = () => {
                 <Users size={24} />
               </div>
               <div className="metric-content">
-                <h3>{metrics?.activeMembers || 0}</h3>
+                <h3>{users.length || 0}</h3>
                 <p>Active Members</p>
                 <div className="metric-detail">
                   {metrics?.tasksPerMember || 0} avg tasks/member
@@ -503,12 +656,12 @@ const Dashboard = () => {
                 </button>
               </div>
               <div className="task-list">
-                {recentTasks.length === 0 ? (
+                {filteredRecentTasks.length === 0 ? (
                   <div className="empty-state">
-                    <p>No recent tasks</p>
+                    <p>No recent tasks{showFilters ? ' matching filters' : ''}</p>
                   </div>
                 ) : (
-                  recentTasks.map(task => (
+                  filteredRecentTasks.map(task => (
                     <div key={task.id} className="task-item">
                       <div className="task-status">
                         <div 
@@ -528,14 +681,8 @@ const Dashboard = () => {
                               'Unassigned'
                             }
                           </span>
-                          <span className="task-time">
-                            {task.created_at ? 
-                              (new Date(task.created_at).toLocaleDateString() !== 'Invalid Date' ? 
-                                new Date(task.created_at).toLocaleDateString() : 
-                                'Recent'
-                              ) : 
-                              'Recent'
-                            }
+                          <span className="task-date">
+                            {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline'}
                           </span>
                         </div>
                       </div>
@@ -720,6 +867,160 @@ const Dashboard = () => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Filter Modal */}
+      {showFilters && (
+        <div className="modal-overlay" onClick={() => setShowFilters(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><Filter size={20} /> Filter Tasks</h3>
+              <button className="btn-close" onClick={() => setShowFilters(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Status</label>
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="form-select">
+                  <option value="all">All Status</option>
+                  {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Priority</label>
+                <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="form-select">
+                  <option value="all">All Priority</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => {
+                setFilterStatus('all');
+                setFilterPriority('all');
+              }}>
+                Clear Filters
+              </button>
+              <button className="btn btn-primary" onClick={() => {
+                // Filters are already applied in real-time, just close modal and show feedback
+                setShowFilters(false);
+                if (filterStatus !== 'all' || filterPriority !== 'all') {
+                  setSuccess('Filters applied successfully!');
+                  setTimeout(() => setSuccess(''), 2000);
+                }
+              }}>
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar Modal */}
+      {showCalendar && (
+        <div className="modal-overlay" onClick={() => setShowCalendar(false)}>
+          <div className="modal-content calendar-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><Calendar size={20} /> Calendar View</h3>
+              <button className="btn-close" onClick={() => setShowCalendar(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="calendar-controls">
+                <button className="btn btn-outline" onClick={() => {
+                  const newDate = new Date(selectedDate);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setSelectedDate(newDate);
+                }}>
+                  <ArrowUp size={16} className="rotate-90" />
+                  Previous
+                </button>
+                <h4>{selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
+                <button className="btn btn-outline" onClick={() => {
+                  const newDate = new Date(selectedDate);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setSelectedDate(newDate);
+                }}>
+                  Next
+                  <ArrowDown size={16} className="rotate-90" />
+                </button>
+              </div>
+              <div className="calendar-grid">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="calendar-day-header">{day}</div>
+                ))}
+                {Array.from({ length: 35 }, (_, i) => {
+                  const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), i - selectedDate.getDay() + 1);
+                  const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const dayTasks = tasks.filter(task => {
+                    const taskDate = new Date(task.deadline);
+                    return taskDate.toDateString() === date.toDateString();
+                  });
+                  
+                  return (
+                    <div
+                      key={i}
+                      className={`calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'} ${isToday ? 'today' : ''} ${dayTasks.length > 0 ? 'has-tasks' : ''}`}
+                      onClick={() => dayTasks.length > 0 && console.log('Tasks for', date.toDateString(), ':', dayTasks)}
+                    >
+                      <div className="calendar-day-content">
+                        <span className="day-number">{date.getDate()}</span>
+                        {dayTasks.length > 0 && (
+                          <div className="task-indicators">
+                            <div className="task-count">{dayTasks.length}</div>
+                            <div className="task-dots">
+                              {dayTasks.slice(0, 3).map((task, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="task-dot" 
+                                  style={{ backgroundColor: getStatusColor(task.status) }}
+                                  title={task.title}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="calendar-legend">
+                <div className="legend-item">
+                  <div className="legend-dot today-dot"></div>
+                  <span>Today</span>
+                </div>
+                <div className="legend-item">
+                  <div className="legend-dot task-dot"></div>
+                  <span>Has Tasks</span>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setSelectedDate(new Date())}>
+                Go to Today
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowCalendar(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <div className="success-toast">
+          <Star size={16} />
+          {success}
         </div>
       )}
 
