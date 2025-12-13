@@ -105,62 +105,26 @@ export const computeTeamMetrics = (tasks = [], users = []) => {
 };
 
 // Compute top performer
-export const computeTopPerformer = (tasks = [], users = []) => {
-  if (!tasks.length || !users.length) {
+export const computeTopPerformer = (perUser = {}) => {
+  if (!perUser || Object.keys(perUser).length === 0) {
     return null;
   }
-
-  // Calculate metrics for each user
-  const userMetrics = {};
-  
-  users.forEach(user => {
-    userMetrics[user.id] = {
-      user,
-      total_tasks: 0,
-      completed_tasks: 0,
-      completion_rate: 0,
-      avg_completion_time: 0,
-      completion_times: []
-    };
-  });
-
-  // Process tasks to calculate user metrics
-  tasks.forEach(task => {
-    // Only consider assigned tasks for top performer calculation
-    if (task.assignee && userMetrics[task.assignee]) {
-      const metrics = userMetrics[task.assignee];
-      metrics.total_tasks++;
-      
-      if (task.status === TASK_STATUS.DONE) {
-        metrics.completed_tasks++;
-        
-        // Calculate completion time
-        if (task.created_at) {
-          const created = new Date(task.created_at);
-          const completed = task.updated_at ? new Date(task.updated_at) : new Date();
-          const completionTime = (completed - created) / (1000 * 60 * 60 * 24); // in days
-          metrics.completion_times.push(completionTime);
-        }
-      }
-    }
-  });
-
-  // Calculate completion rates and average times
-  Object.values(userMetrics).forEach(metrics => {
-    metrics.completion_rate = metrics.total_tasks > 0 ? (metrics.completed_tasks / metrics.total_tasks) * 100 : 0;
-    if (metrics.completion_times.length > 0) {
-      metrics.avg_completion_time = metrics.completion_times.reduce((sum, time) => sum + time, 0) / metrics.completion_times.length;
-    }
-  });
 
   // Find top performer by completion rate
   let topPerformer = null;
   let bestScore = 0;
 
-  Object.values(userMetrics).forEach(metrics => {
-    if (metrics.total_tasks > 0 && metrics.completion_rate > bestScore) {
-      bestScore = metrics.completion_rate;
-      topPerformer = metrics;
+  Object.entries(perUser).forEach(([userId, metrics]) => {
+    const completionRate = metrics.completed > 0 ? (metrics.completed / metrics.total) * 100 : 0;
+    
+    if (metrics.total > 0 && completionRate > bestScore) {
+      bestScore = completionRate;
+      topPerformer = {
+        user: metrics.user,
+        total_tasks: metrics.total,
+        completed_tasks: metrics.completed,
+        completion_rate: completionRate
+      };
     }
   });
 
@@ -220,7 +184,6 @@ export const canUserPerformAction = (user, task, action) => {
 
   const isAdmin = user.role === USER_ROLES.ADMIN;
   const isManager = user.role === USER_ROLES.MANAGER;
-  const isMember = user.role === USER_ROLES.MEMBER;
   const isAssignee = task.assignee === user.id;
   const isCreator = task.created_by === user.id;
 
@@ -242,6 +205,9 @@ export const canUserPerformAction = (user, task, action) => {
     
     case 'update_status':
       return isAdmin || isManager || isAssignee; // Admins, managers, and assignees can update status
+    
+    case 'comment':
+      return isAdmin || isManager || isAssignee || isCreator; // Admins, managers, assignees, and creators can comment
     
     default:
       return false;

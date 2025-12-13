@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Search, Filter, X, CheckCircle, AlertCircle, Clock, Users, TrendingUp } from 'lucide-react';
+import { Plus, Search, X, CheckCircle, AlertCircle, Clock, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { tasksAPI, usersAPI } from '../api';
+import { tasksAPI, usersAPI, notificationsAPI } from '../api';
 import { TASK_STATUS, TASK_STATUS_LABELS, USER_ROLES } from '../utils/constants';
 import { 
-  computeTeamMetrics, 
   canUserPerformAction, 
   filterTasks,
   validateTask,
@@ -92,49 +91,84 @@ const Tasks = () => {
       wsRef.current.close();
     }
 
-    // Note: Replace with your actual WebSocket URL
-    const wsUrl = `ws://localhost:8000/ws/tasks/`;
-    wsRef.current = new WebSocket(wsUrl);
+    // Try different WebSocket endpoints or fallback
+    const possibleEndpoints = [
+      'ws://localhost:8000/ws/tasks/',
+      'ws://localhost:8000/ws/',
+      'ws://localhost:8000/ws/notifications/',
+      'ws://localhost:8000/ws/'
+    ];
+    
+    let wsConnection = null;
+    
+    for (const endpoint of possibleEndpoints) {
+      try {
+        console.log(`Attempting WebSocket connection to: ${endpoint}`);
+        wsRef.current = new WebSocket(endpoint);
+        wsConnection = wsRef.current;
+        break; // Exit loop if connection succeeds
+      } catch (err) {
+        console.log(`Failed to connect to ${endpoint}:`, err);
+        continue; // Try next endpoint
+      }
+    }
+    
+    if (!wsConnection) {
+      console.error('All WebSocket endpoints failed');
+      return; // Don't set up event handlers if no connection
+    }
 
     wsRef.current.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected to:', wsConnection.url);
     };
 
     wsRef.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      switch (data.type) {
-        case 'task_created':
-          setTasks(prev => [data.task, ...prev]);
-          setSuccess('New task created');
-          break;
-        case 'task_updated':
-          setTasks(prev => prev.map(task => 
-            task.id === data.task.id ? data.task : task
-          ));
-          break;
-        case 'task_deleted':
-          setTasks(prev => prev.filter(task => task.id !== data.task_id));
-          setSuccess('Task deleted');
-          break;
-        case 'task_assigned':
-          setTasks(prev => prev.map(task => 
-            task.id === data.task_id ? { ...task, assignee: data.assignee } : task
-          ));
-          break;
-        default:
-          console.log('Unknown WebSocket message type:', data.type);
+      try {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', data);
+        
+        switch (data.type) {
+          case 'task_created':
+            setTasks(prev => [data.task, ...prev]);
+            setSuccess('New task created');
+            break;
+          case 'task_updated':
+            setTasks(prev => prev.map(task => 
+              task.id === data.task.id ? data.task : task
+            ));
+            break;
+          case 'task_deleted':
+            setTasks(prev => prev.filter(task => task.id !== data.task_id));
+            setSuccess('Task deleted');
+            break;
+          case 'notification':
+            // Handle real-time notifications
+            console.log('Real-time notification received:', data.notification);
+            break;
+          default:
+            console.log('Unknown WebSocket message type:', data.type);
+        }
+      } catch (parseErr) {
+        console.error('Error parsing WebSocket message:', parseErr);
       }
     };
 
     wsRef.current.onerror = (error) => {
       console.error('WebSocket error:', error);
+      // Try to reconnect after 5 seconds
+      setTimeout(() => {
+        console.log('Attempting to reconnect WebSocket...');
+        setupWebSocket();
+      }, 5000);
     };
 
     wsRef.current.onclose = () => {
       console.log('WebSocket disconnected');
-      // Attempt to reconnect after 5 seconds
-      setTimeout(setupWebSocket, 5000);
+      // Try to reconnect after 5 seconds
+      setTimeout(() => {
+        console.log('Attempting to reconnect WebSocket...');
+        setupWebSocket();
+      }, 5000);
     };
   }, []);
 
@@ -158,9 +192,6 @@ const Tasks = () => {
                          (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch;
   });
-
-  // Calculate metrics for analytics
-  const metrics = computeTeamMetrics(filteredTasks, users);
 
   // Form validation
   const validateFormData = () => {
@@ -259,10 +290,42 @@ const Tasks = () => {
       const updatedTask = await tasksAPI.update(taskId, { status: newStatus });
       console.log('Task status updated successfully:', updatedTask);
       
+      // Preserve existing user details that might not be returned in the update response
+      const existingTask = tasks.find(t => t.id === taskId);
+      const taskWithPreservedDetails = {
+        ...updatedTask,
+        assignee_detail: updatedTask.assignee_detail || existingTask?.assignee_detail,
+        created_by_detail: updatedTask.created_by_detail || existingTask?.created_by_detail,
+        // Also preserve assignee and created_by objects if they exist
+        assignee: updatedTask.assignee || existingTask?.assignee,
+        created_by: updatedTask.created_by || existingTask?.created_by,
+      };
+      
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? updatedTask : task
+        task.id === taskId ? taskWithPreservedDetails : task
       ));
       setSuccess('Task status updated');
+      
+      // Send notification to managers when task is marked as done
+      if (newStatus === TASK_STATUS.DONE && task.status !== TASK_STATUS.DONE) {
+        try {
+          console.log('Creating task done notification:', {
+            taskId,
+            taskTitle: task.title,
+            userId: user?.id
+          });
+          await notificationsAPI.createTaskDoneNotification(
+            taskId, 
+            task.title, 
+            user?.id
+          );
+          console.log('Task done notification sent to managers');
+        } catch (notifErr) {
+          console.error('Failed to send task done notification:', notifErr);
+          console.error('Notification error details:', notifErr.response?.data);
+          // Don't fail the status update if notification fails
+        }
+      }
     } catch (err) {
       console.error('Error updating task status:', err);
       if (err.response?.status === 401) {
@@ -300,10 +363,43 @@ const Tasks = () => {
     try {
       setUpdatingId(taskId);
       const updatedTask = await tasksAPI.update(taskId, { assignee: assigneeId || null });
+      
+      // Preserve existing user details
+      const existingTask = tasks.find(t => t.id === taskId);
+      const taskWithPreservedDetails = {
+        ...updatedTask,
+        assignee_detail: updatedTask.assignee_detail || existingTask?.assignee_detail,
+        created_by_detail: updatedTask.created_by_detail || existingTask?.created_by_detail,
+        assignee: updatedTask.assignee || existingTask?.assignee,
+        created_by: updatedTask.created_by || existingTask?.created_by,
+      };
+      
       setTasks(prev => prev.map(task => 
-        task.id === taskId ? updatedTask : task
+        task.id === taskId ? taskWithPreservedDetails : task
       ));
       setSuccess('Task assigned successfully');
+      
+      // Send notification to the assigned member when task is assigned
+      if (assigneeId) {
+        try {
+          const task = tasks.find(t => t.id === taskId);
+          console.log('Creating task assigned notification:', {
+            taskId,
+            taskTitle: task.title,
+            assigneeId
+          });
+          await notificationsAPI.createTaskAssignedNotification(
+            taskId, 
+            task.title, 
+            assigneeId
+          );
+          console.log('Task assigned notification sent to member');
+        } catch (notifErr) {
+          console.error('Failed to send task assigned notification:', notifErr);
+          console.error('Notification error details:', notifErr.response?.data);
+          // Don't fail the task assignment if notification fails
+        }
+      }
     } catch (err) {
       setError('Failed to assign task');
       console.error('Error assigning task:', err);
@@ -329,7 +425,12 @@ const Tasks = () => {
 
   const handleAddComment = async (taskId) => {
     const content = commentDrafts[taskId];
-    if (!content?.trim()) return;
+    console.log('Adding comment:', { taskId, content });
+    
+    if (!content?.trim()) {
+      console.log('Comment content is empty, not posting');
+      return;
+    }
 
     // Check if user can comment
     const task = tasks.find(t => t.id === taskId);
@@ -339,16 +440,21 @@ const Tasks = () => {
     }
 
     try {
+      console.log('Calling addComment API:', { taskId, content });
       const newComment = await tasksAPI.addComment(taskId, { content });
+      console.log('Comment API response:', newComment);
+      
       setCommentsData(prev => ({
         ...prev,
         [taskId]: [...(prev[taskId] || []), newComment]
       }));
       setCommentDrafts(prev => ({ ...prev, [taskId]: '' }));
       setSuccess('Comment added');
+      console.log('Comment added successfully');
     } catch (err) {
-      setError('Failed to add comment');
       console.error('Error adding comment:', err);
+      console.error('Comment error details:', err.response?.data);
+      setError('Failed to add comment');
     }
   };
 
