@@ -49,10 +49,11 @@ export const tasksAPI = {
     return response.data;
   },
 
-  addComment: async (taskId, content) => {
-    const response = await api.post(`${API_ENDPOINTS.TASKS}${taskId}/comments/`, {
-      content,
-    });
+  addComment: async (taskId, contentOrObject) => {
+    const payload = typeof contentOrObject === 'string' 
+      ? { content: contentOrObject }
+      : contentOrObject;
+    const response = await api.post(`${API_ENDPOINTS.TASKS}${taskId}/comments/`, payload);
     return response.data;
   },
 

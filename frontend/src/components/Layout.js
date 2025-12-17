@@ -6,7 +6,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import SideNav from './SideNav';
 import NotificationBell from './NotificationBell';
-import { Menu, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import './Layout.css';
 
 const Layout = ({ children }) => {
@@ -31,12 +31,6 @@ const Layout = ({ children }) => {
       <nav className="navbar navbar-shifted">
         {/* Left - Brand */}
         <div className="navbar-left">
-          <button className="hamburger-toggle" onClick={toggleSideNav}>
-            <Menu size={20} />
-          </button>
-          <Link to="/" className="brand">
-            TTMS
-          </Link>
           <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>
             Dashboard
           </Link>
