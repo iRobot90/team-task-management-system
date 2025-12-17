@@ -17,7 +17,7 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    phone: '',
+    phone_number: '',
   });
 
   useEffect(() => {
@@ -30,16 +30,11 @@ const Profile = () => {
       setLoading(true);
       const data = await usersAPI.getProfile();
       console.log('Profile data fetched:', data);
-      console.log('Profile role field:', data.role);
-      console.log('Profile role_name field:', data.role_name);
-      console.log('Profile phone field:', data.phone);
-      console.log('Profile phone field type:', typeof data.phone);
-      console.log('Profile phone field length:', data.phone ? data.phone.length : 'null');
       setProfile(data);
       setFormData({
         first_name: data.first_name || '',
         last_name: data.last_name || '',
-        phone: data.phone || '',
+        phone_number: data.phone_number || '',
       });
     } catch (err) {
       setError('Failed to load profile');
@@ -75,11 +70,11 @@ const Profile = () => {
     // Validate form data
     const firstName = formData.first_name.trim();
     const lastName = formData.last_name.trim();
-    const phone = formData.phone.trim();
-    
-    console.log('Form submission validation:', { firstName, lastName, phone });
-    
-    if (!firstName && !lastName && !phone) {
+    const phoneNumber = formData.phone_number.trim();
+
+    console.log('Form submission validation:', { firstName, lastName, phoneNumber });
+
+    if (!firstName && !lastName && !phoneNumber) {
       setError('Please provide at least one field to update');
       setLoading(false); // Reset loading if validation fails
       return;
@@ -90,65 +85,45 @@ const Profile = () => {
       const payload = {};
       if (firstName) payload.first_name = firstName;
       if (lastName) payload.last_name = lastName;
-      if (phone) payload.phone = phone;
-      
+      if (phoneNumber) payload.phone_number = phoneNumber;
+
       console.log('Final payload being sent:', payload);
-      
+
       // Update profile
       const response = await usersAPI.updateProfile(payload);
       console.log('Profile update API response:', response);
-      
+
       // Ensure we have a valid response
       const updatedProfile = response.data || response;
-      
+
       if (!updatedProfile || typeof updatedProfile !== 'object') {
         throw new Error('Invalid response from server');
       }
-      
+
       console.log('Updated profile data:', updatedProfile);
-      
+
       // Update all states with the new data immediately
       setProfile(updatedProfile);
       updateUser(updatedProfile);
-      
+
       // Update form data with the latest values from server
       setFormData({
         first_name: updatedProfile.first_name || '',
         last_name: updatedProfile.last_name || '',
-        phone: updatedProfile.phone || '',
+        phone_number: updatedProfile.phone_number || '',
       });
-      
-      // Force a profile refresh to ensure we have the latest data
-      setTimeout(async () => {
-        try {
-          const freshProfile = await usersAPI.getProfile();
-          console.log('Fresh profile data after update:', freshProfile);
-          console.log('Fresh phone field:', freshProfile.phone);
-          // Update profile state again with fresh data
-          setProfile(freshProfile);
-          updateUser(freshProfile);
-          // Also update form data to ensure consistency
-          setFormData({
-            first_name: freshProfile.first_name || '',
-            last_name: freshProfile.last_name || '',
-            phone: freshProfile.phone || '',
-          });
-        } catch (refreshErr) {
-          console.error('Failed to refresh profile:', refreshErr);
-        }
-      }, 100);
-      
+
       setSuccess('Profile updated successfully!');
       setEditing(false);
       setLoading(false); // Reset loading after successful save
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
-      
+
     } catch (err) {
       console.error('Profile update error:', err);
       setLoading(false); // Reset loading on error
-      
+
       // Enhanced error handling
       if (err.response?.status === 400) {
         const errorData = err.response.data;
@@ -219,17 +194,7 @@ const Profile = () => {
               </div>
               <div className="info-row">
                 <label>Phone:</label>
-                <span>{(() => {
-                  const phoneValue = profile.phone;
-                  console.log('Phone display logic:', {
-                    phoneValue,
-                    phoneType: typeof phoneValue,
-                    phoneLength: phoneValue ? phoneValue.length : 'null',
-                    phoneTrimmed: phoneValue ? phoneValue.trim() : 'null',
-                    phoneDisplay: phoneValue ? phoneValue.trim() || 'Not set' : 'Not set'
-                  });
-                  return phoneValue ? phoneValue.trim() || 'Not set' : 'Not set';
-                })()}</span>
+                <span>{profile.phone_number || 'Not set'}</span>
               </div>
               <div className="info-row">
                 <label>Role:</label>
@@ -268,7 +233,7 @@ const Profile = () => {
                   setFormData({
                     first_name: profile.first_name || '',
                     last_name: profile.last_name || '',
-                    phone: profile.phone || '',
+                    phone_number: profile.phone_number || '',
                   });
                 }}
                 className="btn-cancel"
@@ -300,19 +265,19 @@ const Profile = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="phone">Phone</label>
+              <label htmlFor="phone_number">Phone</label>
               <input
                 type="text"
-                id="phone"
-                name="phone"
-                value={formData.phone}
+                id="phone_number"
+                name="phone_number"
+                value={formData.phone_number}
                 onChange={handleChange}
               />
             </div>
 
             <div className="form-actions">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
                 disabled={loading}
                 style={{

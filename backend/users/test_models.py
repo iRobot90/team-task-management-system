@@ -125,8 +125,8 @@ class AdminProfileModelTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.admin_user = User.objects.create_user(
-            username='admin',
-            email='admin@example.com',
+            username=f'admin_{uuid.uuid4().hex[:8]}',
+            email=f'admin_{uuid.uuid4().hex[:8]}@example.com',
             password='adminpass123',
             role=User.Role.ADMIN
         )
@@ -171,8 +171,8 @@ class ManagerProfileModelTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.manager_user = User.objects.create_user(
-            username='manager',
-            email='manager@example.com',
+            username=f'manager_{uuid.uuid4().hex[:8]}',
+            email=f'manager_{uuid.uuid4().hex[:8]}@example.com',
             password='managerpass123',
             role=User.Role.MANAGER
         )
@@ -212,8 +212,8 @@ class MemberProfileModelTest(TestCase):
     def setUp(self):
         """Set up test data"""
         self.member_user = User.objects.create_user(
-            username='member',
-            email='member@example.com',
+            username=f'member_{uuid.uuid4().hex[:8]}',
+            email=f'member_{uuid.uuid4().hex[:8]}@example.com',
             password='memberpass123',
             role=User.Role.MEMBER
         )

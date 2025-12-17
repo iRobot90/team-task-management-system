@@ -1,5 +1,14 @@
 // API Configuration
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
+const getBaseUrl = () => {
+  if (process.env.REACT_APP_API_BASE_URL) return process.env.REACT_APP_API_BASE_URL;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:8000/api';
+  }
+  // For local network access (e.g. 192.168.x.x)
+  return `http://${window.location.hostname}:8000/api`;
+};
+
+export const API_BASE_URL = getBaseUrl();
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -8,18 +17,18 @@ export const API_ENDPOINTS = {
   LOGIN: '/auth/login/',
   LOGOUT: '/auth/logout/',
   REFRESH: '/auth/refresh/',
-  
+
   // Users
   USERS: '/users/',
   USER_PROFILE: '/users/profile/',
   UPDATE_PROFILE: '/users/update_profile/',
-  
+
   // Tasks
   TASKS: '/tasks/',
   MY_TASKS: '/tasks/my_tasks/',
   TASK_STATISTICS: '/tasks/statistics/',
   NOTIFICATIONS: '/notifications/',
-  
+
   // Roles
   ROLES: '/roles/',
 };
@@ -27,7 +36,7 @@ export const API_ENDPOINTS = {
 // Task Status Options (aligned with backend Task.STATUS_CHOICES)
 export const TASK_STATUS = {
   TODO: 'todo',
-  IN_PROGRESS: 'in_progress', 
+  IN_PROGRESS: 'in_progress',
   DONE: 'done',
 };
 

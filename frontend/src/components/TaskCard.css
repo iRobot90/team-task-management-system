@@ -625,6 +625,10 @@
   .comment-submit {
     width: 100%;
     padding: 0.75rem;
+    border-radius: 8px;
+    /* Less rounded on mobile for stack */
+    text-align: center;
+    justify-content: center;
   }
 
   .comments-list {

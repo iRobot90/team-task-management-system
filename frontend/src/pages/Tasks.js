@@ -91,12 +91,15 @@ const Tasks = () => {
       wsRef.current.close();
     }
 
-    // Try different WebSocket endpoints or fallback
+    // Determine WebSocket protocol based on current page protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host; // This includes hostname and port if present
+    
+    // Construct dynamic endpoints
     const possibleEndpoints = [
-      'ws://localhost:8000/ws/tasks/',
-      'ws://localhost:8000/ws/',
-      'ws://localhost:8000/ws/notifications/',
-      'ws://localhost:8000/ws/'
+      `${protocol}//${host}/ws/tasks/`,
+      `${protocol}//${host}/ws/`,
+      `${protocol}//${host}/ws/notifications/`
     ];
     
     let wsConnection = null;

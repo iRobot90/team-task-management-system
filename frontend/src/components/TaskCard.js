@@ -21,12 +21,12 @@ import './TaskCard.css';
 const getRelativeTime = (date) => {
   const now = new Date();
   const diffInSeconds = Math.floor((now - date) / 1000);
-  
+
   if (diffInSeconds < 60) return 'just now';
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
   if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-  
+
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
@@ -60,7 +60,7 @@ const TaskCard = ({
   const canUpdateStatus = isManagerOrAdmin || (assignee && String(assignee?.id) === String(currentUserId));
   const canAssign = isManagerOrAdmin;
   const isAssignedToMe = assignee && String(assignee?.id) === String(currentUserId);
-  
+
   const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== TASK_STATUS.DONE;
   const isUpdating = updatingId === task.id;
 
@@ -127,6 +127,22 @@ const TaskCard = ({
     setCommentDrafts(prev => ({ ...prev, [task.id]: value }));
   };
 
+  const formatCommentContent = (content) => {
+    if (!content) return '';
+    // Handle Python dictionary string representation that crept into DB
+    if (typeof content === 'string' && content.startsWith("{'content':") && content.endsWith("}")) {
+      try {
+        // Simple extraction for the common case
+        const inner = content.slice(12, -2); // remove {'content': ' and '}
+        // Handle escaped quotes if any (basic)
+        return inner.replace(/^'(.*)'$/, '$1');
+      } catch (e) {
+        return content;
+      }
+    }
+    return content;
+  };
+
   return (
     <div className={`task-card ${getPriorityClass()} ${isExpanded ? 'expanded' : ''} ${isAssignedToMe ? 'assigned-to-me' : ''}`}>
       {/* Card Header */}
@@ -145,12 +161,12 @@ const TaskCard = ({
                 </span>
               </div>
             </div>
-            
+
             {/* Description Preview */}
             {task.description && (
               <p className="task-description-preview">
-                {task.description.length > 100 
-                  ? `${task.description.substring(0, 100)}...` 
+                {task.description.length > 100
+                  ? `${task.description.substring(0, 100)}...`
                   : task.description}
               </p>
             )}
@@ -167,11 +183,11 @@ const TaskCard = ({
                 </span>
               </div>
             )}
-            
+
             <div className="meta-item">
               <User size={14} />
               <span>
-                {assignee 
+                {assignee
                   ? getUserDisplayName(assignee)
                   : 'Unassigned'
                 }
@@ -203,21 +219,21 @@ const TaskCard = ({
               {task.description || 'No description provided.'}
             </p>
           </div>
-          
+
           {/* Detailed Meta Information */}
           <div className="task-meta-grid">
             <div className="meta-grid-item">
               <span className="meta-label">Created:</span>
               <span>{new Date(task.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
-            
+
             {task.updated_at && task.updated_at !== task.created_at && (
               <div className="meta-grid-item">
                 <span className="meta-label">Last Updated:</span>
                 <span>{new Date(task.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
               </div>
             )}
-            
+
             {task.deadline && (
               <div className="meta-grid-item">
                 <span className="meta-label">Deadline:</span>
@@ -226,18 +242,18 @@ const TaskCard = ({
                 </span>
               </div>
             )}
-            
+
             <div className="meta-grid-item">
               <span className="meta-label">Created By:</span>
               <span>{creator ? getUserDisplayName(creator) : 'Unknown'}</span>
             </div>
-            
+
             <div className="meta-grid-item">
               <span className="meta-label">Assigned To:</span>
               <span>{assignee ? getUserDisplayName(assignee) : 'Unassigned'}</span>
             </div>
           </div>
-          
+
           {/* Actions Section */}
           <div className="task-actions-section">
             {/* Status Update - Available to both members and managers */}
@@ -258,14 +274,14 @@ const TaskCard = ({
                 </select>
               </div>
             )}
-            
+
             {/* Manager/Admin Actions */}
             {isManagerOrAdmin && (
               <div className="manager-actions">
                 <div className="action-group">
                   <label className="action-label">Assign Task:</label>
                   <div className="assign-controls">
-                    <button 
+                    <button
                       className="assign-btn"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -275,10 +291,10 @@ const TaskCard = ({
                       <UserPlus size={16} />
                       {assignee ? 'Reassign' : 'Assign'}
                     </button>
-                    
+
                     {showAssignDropdown && (
                       <div className="assign-dropdown">
-                        <button 
+                        <button
                           onClick={(e) => handleAssign(e, null)}
                           className="assign-option unassign"
                         >
@@ -286,7 +302,7 @@ const TaskCard = ({
                           Unassign
                         </button>
                         {users.map(user => (
-                          <button 
+                          <button
                             key={user.id}
                             onClick={(e) => handleAssign(e, user.id)}
                             className="assign-option"
@@ -303,7 +319,7 @@ const TaskCard = ({
                 <div className="action-group">
                   <label className="action-label">Task Management:</label>
                   <div className="task-management-buttons">
-                    <button 
+                    <button
                       onClick={handleEdit}
                       className="btn btn-edit"
                     >
@@ -311,7 +327,7 @@ const TaskCard = ({
                       Edit
                     </button>
                     {canDelete && (
-                      <button 
+                      <button
                         onClick={handleDelete}
                         className="btn btn-delete"
                       >
@@ -326,7 +342,7 @@ const TaskCard = ({
 
             {/* Comments Section */}
             <div className="comments-section">
-              <button 
+              <button
                 className="comments-toggle"
                 onClick={toggleComments}
               >
@@ -334,7 +350,7 @@ const TaskCard = ({
                 {commentsOpen ? 'Hide Comments' : 'Show Comments'}
                 {comments.length > 0 && <span className="comment-count">({comments.length})</span>}
               </button>
-              
+
               {commentsOpen && (
                 <div className="comments-container">
                   <div className="comments-list">
@@ -351,12 +367,12 @@ const TaskCard = ({
                               {getRelativeTime(new Date(comment.created_at))}
                             </span>
                           </div>
-                          <div className="comment-content">{comment.content}</div>
+                          <div className="comment-content">{formatCommentContent(comment.content)}</div>
                         </div>
                       ))
                     )}
                   </div>
-                  
+
                   <form onSubmit={handleCommentSubmit} className="comment-form">
                     <input
                       type="text"

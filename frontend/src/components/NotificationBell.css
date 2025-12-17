@@ -46,6 +46,29 @@
   z-index: 20;
 }
 
+@media (max-width: 640px) {
+  .notif-panel {
+    width: 280px;
+    /* Slightly narrower on mobile */
+    right: -50px;
+    /* Shift right to align with bell more naturally if needed, or keep 0 */
+  }
+}
+
+@media (max-width: 380px) {
+  .notif-panel {
+    width: 90vw;
+    /* Use viewport width on very small screens */
+    right: -10vw;
+    /* Adjust alignment */
+    position: fixed;
+    /* Fix to viewport to avoid overflow clipping issues */
+    top: 60px;
+    left: 5%;
+    right: 5%;
+  }
+}
+
 .notif-header {
   display: flex;
   justify-content: space-between;

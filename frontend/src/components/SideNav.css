@@ -367,6 +367,10 @@
     display: block;
   }
 
+  .collapse-toggle {
+    display: none !important;
+  }
+
   .sidenav.collapsed {
     width: 280px;
   }
