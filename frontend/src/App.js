@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './components/Layout';
+import ModernLayout from './login/components/ModernLayout';
 import PrivateRoute from './components/PrivateRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
+import LoginPage from './login/pages/LoginPage';
+import SignupPage from './login/pages/SignupPage';
+import ModernDashboard from './login/pages/ModernDashboard';
 import Tasks from './pages/Tasks';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
@@ -38,7 +38,7 @@ function App() {
             path="/login"
             element={
               <PublicRoute>
-                <Login />
+                <LoginPage />
               </PublicRoute>
             }
           />
@@ -46,7 +46,7 @@ function App() {
             path="/register"
             element={
               <PublicRoute>
-                <Register />
+                <SignupPage />
               </PublicRoute>
             }
           />
@@ -54,9 +54,9 @@ function App() {
             path="/dashboard"
             element={
               <PrivateRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
+                <ModernLayout>
+                  <ModernDashboard />
+                </ModernLayout>
               </PrivateRoute>
             }
           />
@@ -64,9 +64,9 @@ function App() {
             path="/tasks"
             element={
               <PrivateRoute>
-                <Layout>
+                <ModernLayout>
                   <Tasks />
-                </Layout>
+                </ModernLayout>
               </PrivateRoute>
             }
           />
@@ -74,9 +74,9 @@ function App() {
             path="/users"
             element={
               <PrivateRoute requiredRole={USER_ROLES.ADMIN}>
-                <Layout>
+                <ModernLayout>
                   <Users />
-                </Layout>
+                </ModernLayout>
               </PrivateRoute>
             }
           />
@@ -84,9 +84,9 @@ function App() {
             path="/profile"
             element={
               <PrivateRoute>
-                <Layout>
+                <ModernLayout>
                   <Profile />
-                </Layout>
+                </ModernLayout>
               </PrivateRoute>
             }
           />
@@ -94,9 +94,9 @@ function App() {
             path="/team-performance"
             element={
               <PrivateRoute requiredRole={[USER_ROLES.ADMIN, USER_ROLES.MANAGER]}>
-                <Layout>
+                <ModernLayout>
                   <TeamPerformance />
-                </Layout>
+                </ModernLayout>
               </PrivateRoute>
             }
           />
@@ -104,9 +104,9 @@ function App() {
             path="/my-performance"
             element={
               <PrivateRoute requiredRole={USER_ROLES.MEMBER}>
-                <Layout>
+                <ModernLayout>
                   <MyPerformance />
-                </Layout>
+                </ModernLayout>
               </PrivateRoute>
             }
           />

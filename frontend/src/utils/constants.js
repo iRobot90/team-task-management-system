@@ -4,8 +4,9 @@ const getBaseUrl = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:8000/api';
   }
-  // For local network access (e.g. 192.168.x.x)
-  return `http://${window.location.hostname}:8000/api`;
+  // For production: use same protocol as the page (HTTPS) and proxy through nginx
+  const protocol = window.location.protocol; // 'https:' or 'http:'
+  return `${protocol}//${window.location.host}/api`;
 };
 
 export const API_BASE_URL = getBaseUrl();
@@ -46,16 +47,16 @@ export const TASK_STATUS_LABELS = {
   [TASK_STATUS.DONE]: 'Done',
 };
 
-// User Roles (mirror backend enums)
+// User Roles for E-Waste Management System
 export const USER_ROLES = {
   ADMIN: 'ADMIN',
-  MANAGER: 'MANAGER',
-  MEMBER: 'MEMBER',
+  WASTE_COLLECTOR: 'WASTE_COLLECTOR',
+  CITIZEN: 'CITIZEN',
 };
 
 export const USER_ROLE_LABELS = {
-  [USER_ROLES.ADMIN]: 'Admin',
-  [USER_ROLES.MANAGER]: 'Manager',
-  [USER_ROLES.MEMBER]: 'Member',
+  [USER_ROLES.ADMIN]: 'Administrator',
+  [USER_ROLES.WASTE_COLLECTOR]: 'Waste Collector',
+  [USER_ROLES.CITIZEN]: 'Citizen',
 };
 

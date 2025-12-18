@@ -140,3 +140,118 @@
 .rotate-90 {
   transform: rotate(90deg);
 }
+
+/* Calendar navigation buttons */
+.calendar-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .calendar-modal {
+    max-width: 100%;
+    margin: 10px;
+    width: calc(100vw - 20px);
+  }
+
+  .calendar-controls {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 0.5rem 0;
+  }
+
+  .calendar-controls h4 {
+    font-size: 0.95rem;
+    text-align: center;
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+
+  .calendar-nav-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    min-width: auto;
+  }
+
+  .calendar-nav-btn .nav-text {
+    display: none;
+  }
+
+  .calendar-grid {
+    gap: 1px;
+  }
+
+  .calendar-day-header {
+    padding: 6px 2px;
+    font-size: 0.7rem;
+  }
+
+  .calendar-day {
+    min-height: 45px;
+    padding: 2px;
+  }
+
+  .day-number {
+    font-size: 0.75rem;
+  }
+
+  .task-count {
+    font-size: 0.6rem;
+    padding: 1px 3px;
+  }
+
+  .task-dot {
+    width: 3px;
+    height: 3px;
+  }
+
+  .calendar-legend {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .legend-item {
+    font-size: 0.75rem;
+  }
+
+  .legend-dot {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-modal {
+    margin: 5px;
+    width: calc(100vw - 10px);
+  }
+
+  .calendar-controls h4 {
+    font-size: 0.85rem;
+    min-width: 100px;
+  }
+
+  .calendar-day-header {
+    font-size: 0.65rem;
+    padding: 4px 1px;
+  }
+
+  .calendar-day {
+    min-height: 38px;
+    padding: 1px;
+  }
+
+  .day-number {
+    font-size: 0.7rem;
+  }
+
+  .task-count {
+    font-size: 0.55rem;
+  }
+}

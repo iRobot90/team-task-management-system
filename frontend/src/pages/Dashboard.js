@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  TrendingUp, 
-  Users, 
-  CheckCircle, 
-  Clock, 
+import {
+  TrendingUp,
+  Users,
+  CheckCircle,
+  Clock,
   AlertCircle,
   Calendar,
   BarChart3,
@@ -42,16 +42,16 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [recentTasks, setRecentTasks] = useState([]);
   const [overdueTasks, setOverdueTasks] = useState([]);
-  
+
   // Filter state
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Calendar state
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
+
   // Task creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -73,14 +73,14 @@ const Dashboard = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       // Check if user is authenticated
       const token = storage.getToken();
       if (!token) {
         setError('Please log in to access the dashboard');
         return;
       }
-      
+
       // Fetch tasks and users data in parallel
       const [tasksData, usersData] = await Promise.all([
         tasksAPI.getAll().catch(err => {
@@ -95,7 +95,7 @@ const Dashboard = () => {
 
       const allTasks = tasksData.results || tasksData || [];
       const allUsers = usersData.results || usersData || [];
-      
+
       console.log('Dashboard data loaded:', {
         allTasks: allTasks,
         allUsers: allUsers,
@@ -104,29 +104,29 @@ const Dashboard = () => {
         isManager,
         isMember
       });
-      
+
       setTasks(allTasks);
       setUsers(allUsers);
-      
+
       // Process recent and overdue tasks
       const now = new Date();
       const userTasks = isMember ? allTasks.filter(task => task.assignee === user?.id) : allTasks;
-      
+
       // Recent tasks (last 7 days)
       const recent = userTasks
         .filter(task => new Date(task.created_at) > new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000))
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5);
-      
+
       // Overdue tasks
       const overdue = userTasks
         .filter(task => task.deadline && new Date(task.deadline) < now && task.status !== TASK_STATUS.DONE)
         .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
         .slice(0, 5);
-      
+
       setRecentTasks(recent);
       setOverdueTasks(overdue);
-      
+
       await fetchNotifications();
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -153,10 +153,10 @@ const Dashboard = () => {
       console.log('Fetching notifications...');
       const data = await notificationsAPI.list();
       console.log('Notifications API response:', data);
-      
+
       const notificationsArray = Array.isArray(data) ? data : (data.results || []);
       console.log('Processed notifications array:', notificationsArray);
-      
+
       setNotifications(notificationsArray.slice(0, 5));
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -211,7 +211,7 @@ const Dashboard = () => {
 
   const metrics = calculateMetrics();
   const topPerformer = metrics && Object.keys(metrics.perUser || {}).length > 0 ? computeTopPerformer(metrics.perUser) : null;
-  
+
   // Debug metrics calculation
   console.log('Dashboard metrics debug:', {
     tasksLength: tasks.length,
@@ -241,7 +241,7 @@ const Dashboard = () => {
 
   const filteredTasks = applyFilters(tasks);
   const filteredRecentTasks = applyFilters(recentTasks);
-  
+
   // Calculate filtered stats for member dashboard
   const filteredStats = {
     total: filteredTasks.length,
@@ -272,7 +272,7 @@ const Dashboard = () => {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-    
+
     setSuccess('Tasks downloaded successfully!');
     setTimeout(() => setSuccess(''), 3000);
   };
@@ -294,13 +294,13 @@ const Dashboard = () => {
   // Task creation functions
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    
+
     // Validate title length
     if (!formData.title.trim()) {
       setFormErrors({ title: 'Title is required' });
       return;
     }
-    
+
     if (formData.title.trim().length < 3) {
       setFormErrors({ title: 'Title must be at least 3 characters long' });
       return;
@@ -309,14 +309,14 @@ const Dashboard = () => {
     try {
       setUpdatingId('create');
       setError('');
-      
+
       // Check if user is authenticated
       const token = storage.getToken();
       if (!token) {
         setError('Please log in to create tasks');
         return;
       }
-      
+
       const taskData = {
         ...formData,
         status: formData.status, // Use the status from TASK_STATUS constants
@@ -324,11 +324,11 @@ const Dashboard = () => {
         created_by: user?.id, // Add current user as creator
         creator: user // Add user object for display
       };
-      
+
       console.log('Creating task with data:', taskData);
       const newTask = await tasksAPI.create(taskData);
       console.log('Task created successfully:', newTask);
-      
+
       setTasks(prev => [newTask, ...prev]);
       setShowCreateModal(false);
       setSuccess('Task created successfully');
@@ -341,7 +341,7 @@ const Dashboard = () => {
         assignee: ''
       });
       setFormErrors({});
-      
+
       // Refresh dashboard data to show new task
       await fetchDashboardData();
     } catch (err) {
@@ -406,8 +406,8 @@ const Dashboard = () => {
             <div className="welcome-section">
               <h1 className="dashboard-title">
                 {isManager ? 'Manager Dashboard' : 'My Dashboard'}
-                <button 
-                  onClick={handleRefresh} 
+                <button
+                  onClick={handleRefresh}
                   className="refresh-btn"
                   disabled={refreshing}
                 >
@@ -439,7 +439,7 @@ const Dashboard = () => {
                 <RefreshCw size={16} className={refreshing ? 'spinning' : ''} />
               </button>
             </div>
-            
+
             {isManager && (
               <div className="quick-actions">
                 <button className="btn btn-primary modern" onClick={() => setShowCreateModal(true)}>
@@ -484,46 +484,46 @@ const Dashboard = () => {
       {/* Main Content */}
       {!error && (
         <div className="dashboard-content">
-            <div className="stat-card-modern primary">
-              <div className="stat-icon">
-                <Briefcase size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-number">{filteredStats.total}</div>
-                <div className="stat-label">Total Tasks</div>
-              </div>
+          <div className="stat-card-modern primary">
+            <div className="stat-icon">
+              <Briefcase size={24} />
             </div>
-            
-            <div className="stat-card-modern todo">
-              <div className="stat-icon">
-                <Clock size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-number">{filteredStats.todo}</div>
-                <div className="stat-label">To Do</div>
-              </div>
-            </div>
-            
-            <div className="stat-card-modern progress">
-              <div className="stat-icon">
-                <Activity size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-number">{filteredStats.inProgress}</div>
-                <div className="stat-label">In Progress</div>
-              </div>
-            </div>
-            
-            <div className="stat-card-modern completed">
-              <div className="stat-icon">
-                <CheckCircle size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-number">{filteredStats.done}</div>
-                <div className="stat-label">Completed</div>
-              </div>
+            <div className="stat-content">
+              <div className="stat-number">{filteredStats.total}</div>
+              <div className="stat-label">Total Tasks</div>
             </div>
           </div>
+
+          <div className="stat-card-modern todo">
+            <div className="stat-icon">
+              <Clock size={24} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-number">{filteredStats.todo}</div>
+              <div className="stat-label">To Do</div>
+            </div>
+          </div>
+
+          <div className="stat-card-modern progress">
+            <div className="stat-icon">
+              <Activity size={24} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-number">{filteredStats.inProgress}</div>
+              <div className="stat-label">In Progress</div>
+            </div>
+          </div>
+
+          <div className="stat-card-modern completed">
+            <div className="stat-icon">
+              <CheckCircle size={24} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-number">{filteredStats.done}</div>
+              <div className="stat-label">Completed</div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Manager Specific Features */}
@@ -552,8 +552,8 @@ const Dashboard = () => {
                 <h3>{metrics?.completionRate || 0}%</h3>
                 <p>Completion Rate</p>
                 <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
+                  <div
+                    className="progress-fill"
                     style={{ width: `${metrics?.completionRate || 0}%` }}
                   ></div>
                 </div>
@@ -628,8 +628,8 @@ const Dashboard = () => {
               <div className="distribution-grid">
                 {Object.entries(metrics?.statusCounts || {}).map(([status, count]) => (
                   <div key={status} className="dist-item">
-                    <div 
-                      className="dist-color" 
+                    <div
+                      className="dist-color"
                       style={{ backgroundColor: getStatusColor(status) }}
                     />
                     <div className="dist-info">
@@ -648,7 +648,7 @@ const Dashboard = () => {
               <div className="card-header">
                 <Clock size={20} />
                 <h3>Recent Tasks</h3>
-                <button 
+                <button
                   className="view-all-btn"
                   onClick={() => window.location.href = '/tasks'}
                 >
@@ -664,8 +664,8 @@ const Dashboard = () => {
                   filteredRecentTasks.map(task => (
                     <div key={task.id} className="task-item">
                       <div className="task-status">
-                        <div 
-                          className="status-dot" 
+                        <div
+                          className="status-dot"
                           style={{ backgroundColor: getStatusColor(task.status) }}
                         />
                       </div>
@@ -673,11 +673,11 @@ const Dashboard = () => {
                         <h4>{task.title}</h4>
                         <div className="task-meta">
                           <span className="task-assignee">
-                            {task.assignee ? 
-                              (users.find(u => u.id === task.assignee) ? 
-                                getUserDisplayName(users.find(u => u.id === task.assignee)) : 
+                            {task.assignee ?
+                              (users.find(u => u.id === task.assignee) ?
+                                getUserDisplayName(users.find(u => u.id === task.assignee)) :
                                 'Unknown User'
-                              ) : 
+                              ) :
                               'Unassigned'
                             }
                           </span>
@@ -692,7 +692,7 @@ const Dashboard = () => {
                         </span>
                       </div>
                       <div className="task-actions">
-                        <button 
+                        <button
                           className="btn-icon"
                           onClick={() => window.location.href = `/tasks`}
                         >
@@ -710,7 +710,7 @@ const Dashboard = () => {
               <div className="card-header">
                 <Bell size={20} />
                 <h3>Notifications</h3>
-                <button 
+                <button
                   className="view-all-btn"
                   onClick={() => window.location.href = '/dashboard#notifications'}
                 >
@@ -749,7 +749,7 @@ const Dashboard = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h3>Create New Task</h3>
-              <button 
+              <button
                 className="modal-close"
                 onClick={() => {
                   setShowCreateModal(false);
@@ -759,7 +759,7 @@ const Dashboard = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleCreateTask} className="task-form">
               <div className="form-group">
                 <label htmlFor="title">Title *</label>
@@ -934,22 +934,22 @@ const Dashboard = () => {
             </div>
             <div className="modal-body">
               <div className="calendar-controls">
-                <button className="btn btn-outline" onClick={() => {
+                <button className="btn btn-outline calendar-nav-btn" onClick={() => {
                   const newDate = new Date(selectedDate);
                   newDate.setMonth(newDate.getMonth() - 1);
                   setSelectedDate(newDate);
                 }}>
-                  <ArrowUp size={16} className="rotate-90" />
-                  Previous
+                  <ArrowDown size={16} className="rotate-90" />
+                  <span className="nav-text">Prev</span>
                 </button>
                 <h4>{selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>
-                <button className="btn btn-outline" onClick={() => {
+                <button className="btn btn-outline calendar-nav-btn" onClick={() => {
                   const newDate = new Date(selectedDate);
                   newDate.setMonth(newDate.getMonth() + 1);
                   setSelectedDate(newDate);
                 }}>
-                  Next
-                  <ArrowDown size={16} className="rotate-90" />
+                  <span className="nav-text">Next</span>
+                  <ArrowUp size={16} className="rotate-90" />
                 </button>
               </div>
               <div className="calendar-grid">
@@ -964,7 +964,7 @@ const Dashboard = () => {
                     const taskDate = new Date(task.deadline);
                     return taskDate.toDateString() === date.toDateString();
                   });
-                  
+
                   return (
                     <div
                       key={i}
@@ -978,9 +978,9 @@ const Dashboard = () => {
                             <div className="task-count">{dayTasks.length}</div>
                             <div className="task-dots">
                               {dayTasks.slice(0, 3).map((task, idx) => (
-                                <div 
-                                  key={idx} 
-                                  className="task-dot" 
+                                <div
+                                  key={idx}
+                                  className="task-dot"
                                   style={{ backgroundColor: getStatusColor(task.status) }}
                                   title={task.title}
                                 />
@@ -1024,7 +1024,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      </div>
+    </div>
   );
 };
 
