@@ -27,7 +27,7 @@ router.register(r'admin/password-resets', PasswordResetRequestViewSet, basename=
 router.register(r'admin/logs', AdminActivityLogViewSet, basename='admin-log')
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('django-admin/', admin.site.urls),
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

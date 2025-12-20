@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from users.models import User
 from .models import Task, Notification, Comment
 from .models import Project, ActivityLog
 from users.serializers import UserSerializer
@@ -42,6 +43,12 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 class TaskUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating tasks"""
     
+    assignee = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = Task
         fields = ['title', 'description', 'status', 'priority', 'deadline', 'assignee']
