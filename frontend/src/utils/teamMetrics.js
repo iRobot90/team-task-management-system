@@ -65,6 +65,8 @@ export const computeTeamMetrics = (tasks = [], users = []) => {
       case TASK_STATUS.DONE:
         metrics.done++;
         break;
+      default:
+        break;
     }
 
     // Overdue tasks
@@ -116,7 +118,7 @@ export const computeTopPerformer = (perUser = {}) => {
 
   Object.entries(perUser).forEach(([userId, metrics]) => {
     const completionRate = metrics.completed > 0 ? (metrics.completed / metrics.total) * 100 : 0;
-    
+
     if (metrics.total > 0 && completionRate > bestScore) {
       bestScore = completionRate;
       topPerformer = {
@@ -155,23 +157,23 @@ export const filterTasks = (tasks = [], statusFilter = 'all', assigneeFilter = '
 // Validate task data
 export const validateTask = (task) => {
   const errors = {};
-  
+
   if (!task.title || task.title.trim().length < 3) {
     errors.title = 'Title must be at least 3 characters long';
   }
-  
+
   if (task.title && task.title.length > 200) {
     errors.title = 'Title must be less than 200 characters';
   }
-  
+
   if (task.description && task.description.length > 2000) {
     errors.description = 'Description must be less than 2000 characters';
   }
-  
+
   if (task.deadline && new Date(task.deadline) <= new Date()) {
     errors.deadline = 'Deadline must be in the future';
   }
-  
+
   return {
     isValid: Object.keys(errors).length === 0,
     errors
@@ -190,25 +192,25 @@ export const canUserPerformAction = (user, task, action) => {
   switch (action) {
     case 'view':
       return true; // Everyone can view tasks
-    
+
     case 'create':
       return isAdmin || isManager; // Only admins and managers can create tasks
-    
+
     case 'edit':
       return isAdmin || isManager || isAssignee; // Admins, managers, and assignees can edit
-    
+
     case 'delete':
       return isAdmin || isCreator; // Only admins and creators can delete
-    
+
     case 'assign':
       return isAdmin || isManager; // Only admins and managers can assign tasks
-    
+
     case 'update_status':
       return isAdmin || isManager || isAssignee; // Admins, managers, and assignees can update status
-    
+
     case 'comment':
       return isAdmin || isManager || isAssignee || isCreator; // Admins, managers, assignees, and creators can comment
-    
+
     default:
       return false;
   }

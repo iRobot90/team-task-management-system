@@ -7,13 +7,15 @@
 .layout-main {
   display: flex;
   flex: 1;
-  padding-top: 60px; /* Account for fixed navbar height */
+  padding-top: 60px;
+  /* Account for fixed navbar height */
   position: relative;
 }
 
 .main-content {
   flex: 1;
-  margin-left: 280px; /* Account for SideNav width */
+  margin-left: 0;
+  /* No margin since navbar starts after SideNav */
   transition: margin-left 0.3s ease;
   min-height: calc(100vh - 60px);
   background: #f8fafc;
@@ -21,8 +23,18 @@
 }
 
 /* Adjust when SideNav is collapsed */
-.sidenav.collapsed ~ .main-content {
-  margin-left: 80px;
+.sidenav.collapsed~.layout-main .main-content {
+  margin-left: 0;
+}
+
+.sidenav.collapsed~.layout-main {
+  margin-left: 0;
+  /* Remove margin - let navbar handle positioning */
+}
+
+.sidenav.collapsed+.mobile-menu-toggle {
+  left: 90px;
+  /* Position after collapsed SideNav */
 }
 
 /* Navbar Container */
@@ -36,14 +48,15 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   position: fixed;
   top: 0;
-  left: 0;
+  left: 280px;
+  /* Start after SideNav */
   right: 0;
   z-index: 1000;
   height: 60px;
 }
 
 .navbar-shifted {
-  margin-left: 40px;
+  margin-left: 0;
   padding-left: 3rem;
 }
 
@@ -146,23 +159,42 @@
   .hamburger-toggle {
     display: flex;
   }
-  
+
   .navbar-left .nav-link:not(.brand) {
     display: none;
   }
-  
+
   .logout-btn span {
     display: none;
   }
-  
+
+  .navbar {
+    left: 0;
+    padding-left: 4.5rem;
+    /* Add padding for hamburger menu */
+    padding-right: 1rem;
+  }
+
+  .navbar-right {
+    margin-left: auto;
+  }
+
+  .user-welcome {
+    display: none;
+    /* Hide welcome text on mobile */
+  }
+
+  .layout-main {
+    margin-left: 0;
+  }
+
   .main-content {
     margin-left: 0;
     padding: 1rem;
   }
-  
-  .navbar-shifted {
+
+  .sidenav.collapsed~.layout-main {
     margin-left: 0;
-    padding-left: 2rem;
   }
 }
 
@@ -175,12 +207,21 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+    height: auto;
+    min-height: 60px;
+    padding: 1rem 2rem;
   }
 
   .navbar-left {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+    width: 100%;
+  }
+
+  .navbar-right {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .navbar-menu {

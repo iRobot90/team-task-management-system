@@ -8,18 +8,19 @@ export const API_ENDPOINTS = {
   LOGIN: '/auth/login/',
   LOGOUT: '/auth/logout/',
   REFRESH: '/auth/refresh/',
-  
+
   // Users
   USERS: '/users/',
   USER_PROFILE: '/users/profile/',
   UPDATE_PROFILE: '/users/update_profile/',
-  
+
   // Tasks
   TASKS: '/tasks/',
   MY_TASKS: '/tasks/my_tasks/',
   TASK_STATISTICS: '/tasks/statistics/',
   NOTIFICATIONS: '/notifications/',
-  
+  PROJECTS: '/projects/',
+
   // Roles
   ROLES: '/roles/',
 };
@@ -27,7 +28,7 @@ export const API_ENDPOINTS = {
 // Task Status Options (aligned with backend Task.STATUS_CHOICES)
 export const TASK_STATUS = {
   TODO: 'todo',
-  IN_PROGRESS: 'in_progress', 
+  IN_PROGRESS: 'in_progress',
   DONE: 'done',
 };
 

@@ -9,7 +9,6 @@ import './Users.css';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,15 +29,9 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers();
-    fetchRoles();
   }, []);
 
   const { user: currentUser } = useAuth();
-
-  const userCanEditRole = (targetRole) => {
-    // Only Admins can change roles
-    return currentUser?.role === USER_ROLES.ADMIN;
-  };
 
   const fetchUsers = async () => {
     try {
@@ -52,14 +45,7 @@ const Users = () => {
     }
   };
 
-  const fetchRoles = async () => {
-    try {
-      const data = await rolesAPI.getAll();
-      setRoles(Array.isArray(data.results) ? data.results : data);
-    } catch (err) {
-      setError('Failed to load roles');
-    }
-  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -126,7 +112,7 @@ const Users = () => {
     <div className="users-page">
       <div className="page-header">
         <h1>Users</h1>
-        <button 
+        <button
           className="btn btn-primary"
           onClick={() => setShowCreateModal(true)}
         >
@@ -160,13 +146,13 @@ const Users = () => {
                   </span>
                 </td>
                 <td>
-                  <button 
+                  <button
                     className="btn btn-sm btn-secondary"
                     onClick={() => handleEdit(user)}
                   >
                     Edit
                   </button>
-                  <button 
+                  <button
                     className="btn btn-sm btn-danger"
                     onClick={() => handleDelete(user.id)}
                   >
@@ -189,7 +175,7 @@ const Users = () => {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
               />
             </div>
@@ -198,7 +184,7 @@ const Users = () => {
               <input
                 type="text"
                 value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 required
               />
             </div>
@@ -207,7 +193,7 @@ const Users = () => {
               <input
                 type="text"
                 value={formData.first_name}
-                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
               />
             </div>
@@ -216,7 +202,7 @@ const Users = () => {
               <input
                 type="text"
                 value={formData.last_name}
-                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 required
               />
             </div>
@@ -225,14 +211,14 @@ const Users = () => {
               <input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
             <div className="form-group">
               <label>Role</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                 required
               >
                 <option value="">Select Role</option>
@@ -246,7 +232,7 @@ const Users = () => {
               <input
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
               />
             </div>
@@ -255,7 +241,7 @@ const Users = () => {
               <input
                 type="password"
                 value={formData.password_confirm}
-                onChange={(e) => setFormData({...formData, password_confirm: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password_confirm: e.target.value })}
                 required
               />
             </div>
@@ -264,7 +250,7 @@ const Users = () => {
                 <input
                   type="checkbox"
                   checked={formData.is_active}
-                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                 />
                 Active
               </label>
@@ -291,7 +277,7 @@ const Users = () => {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
               />
             </div>
@@ -300,7 +286,7 @@ const Users = () => {
               <input
                 type="text"
                 value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 required
               />
             </div>
@@ -309,7 +295,7 @@ const Users = () => {
               <input
                 type="text"
                 value={formData.first_name}
-                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
               />
             </div>
@@ -318,7 +304,7 @@ const Users = () => {
               <input
                 type="text"
                 value={formData.last_name}
-                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 required
               />
             </div>
@@ -327,14 +313,14 @@ const Users = () => {
               <input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
             <div className="form-group">
               <label>Role</label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                 required
               >
                 <option value="">Select Role</option>
@@ -348,7 +334,7 @@ const Users = () => {
               <input
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Leave blank to keep current password"
               />
             </div>
@@ -357,7 +343,7 @@ const Users = () => {
               <input
                 type="password"
                 value={formData.password_confirm}
-                onChange={(e) => setFormData({...formData, password_confirm: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password_confirm: e.target.value })}
                 placeholder="Leave blank to keep current password"
               />
             </div>
@@ -366,7 +352,7 @@ const Users = () => {
                 <input
                   type="checkbox"
                   checked={formData.is_active}
-                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                 />
                 Active
               </label>

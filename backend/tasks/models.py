@@ -27,6 +27,22 @@ class Task(models.Model):
         choices=STATUS_CHOICES,
         default=TODO
     )
+    
+    LOW = 'low'
+    MEDIUM = 'medium'
+    HIGH = 'high'
+    
+    PRIORITY_CHOICES = [
+        (LOW, 'Low'),
+        (MEDIUM, 'Medium'),
+        (HIGH, 'High'),
+    ]
+    
+    priority = models.CharField(
+        max_length=10,
+        choices=PRIORITY_CHOICES,
+        default=MEDIUM
+    )
     deadline = models.DateTimeField(null=True, blank=True)
     assignee = models.ForeignKey(
         User,

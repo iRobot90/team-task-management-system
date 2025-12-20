@@ -220,13 +220,42 @@
 }
 
 @media (max-width: 768px) {
+  .users-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .users-header h1 {
+    text-align: center;
+  }
+
+  .btn-create {
+    width: 100%;
+    padding: 0.75rem;
+  }
+
   .users-table-container {
     font-size: 0.9rem;
+    box-shadow: none;
+    border: 1px solid #eee;
   }
 
   .users-table th,
   .users-table td {
     padding: 0.75rem 0.5rem;
+    white-space: nowrap;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .btn-edit,
+  .btn-delete {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    width: 100%;
   }
 }
-

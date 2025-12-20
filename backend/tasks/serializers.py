@@ -13,7 +13,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'id', 'title', 'description', 'status', 'status_display',
+            'id', 'title', 'description', 'status', 'status_display', 'priority',
             'deadline', 'assignee', 'assignee_detail',
             'created_by', 'created_by_detail',
             'created_at', 'updated_at'
@@ -31,7 +31,7 @@ class TaskCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Task
-        fields = ['title', 'description', 'status', 'deadline', 'assignee']
+        fields = ['title', 'description', 'status', 'priority', 'deadline', 'assignee']
     
     def create(self, validated_data):
         # Set created_by to the current user
@@ -44,7 +44,7 @@ class TaskUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Task
-        fields = ['title', 'description', 'status', 'deadline', 'assignee']
+        fields = ['title', 'description', 'status', 'priority', 'deadline', 'assignee']
 
 
 class NotificationSerializer(serializers.ModelSerializer):
