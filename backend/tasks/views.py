@@ -181,8 +181,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response(stats)
 
     def perform_update(self, serializer):
-        old_status = serializer.instance.status
+        instance = serializer.instance
+        old_status = instance.status
+        old_assignee = instance.assignee
+        old_deadline = instance.deadline
+        
         task = serializer.save()
+        
         # Notify managers/creators on key status changes
         if old_status != task.status:
             if task.status == Task.IN_PROGRESS and task.created_by:
@@ -199,6 +204,24 @@ class TaskViewSet(viewsets.ModelViewSet):
                     type=Notification.TASK_DONE,
                     message=f"Task '{task.title}' was completed.",
                 )
+
+        # Notify new assignee if assignment changed
+        if task.assignee and task.assignee != old_assignee:
+             Notification.objects.create(
+                user=task.assignee,
+                task=task,
+                type=Notification.TASK_ASSIGNED,
+                message=f"You have been assigned to task '{task.title}' (reassigned)."
+             )
+
+        # Notify assignee if deadline changed (and they are not the one changing it)
+        if task.deadline != old_deadline and task.assignee and self.request.user != task.assignee:
+             Notification.objects.create(
+                user=task.assignee,
+                task=task,
+                type=Notification.TASK_REMINDER,
+                message=f"Deadline for task '{task.title}' updated to {task.deadline}."
+             )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, CanAssignTasks])
     def unassign(self, request, pk=None):

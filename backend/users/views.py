@@ -2,10 +2,29 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db import transaction
 
 from .models import User
 from .permissions import CanManageUsers
 from .serializers import UserProfileSerializer, UserSerializer
+
+
+def log_user_action(admin_user, action, description, target_user, request):
+    """Helper to log user-related admin actions"""
+    from auth_app.models import AdminActivityLog
+    from auth_app.views import log_admin_action
+    
+    log_admin_action(
+        admin_user=admin_user,
+        action=action,
+        description=description,
+        target_user=target_user,
+        metadata={
+            'target_user_email': target_user.email,
+            'target_user_role': target_user.role
+        },
+        request=request
+    )
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -42,6 +61,43 @@ class UserViewSet(viewsets.ModelViewSet):
                 username__icontains=search
             )
         return queryset
+
+    def perform_create(self, serializer):
+        """Log user creation"""
+        user = serializer.save()
+        from auth_app.models import AdminActivityLog
+        log_user_action(
+            admin_user=self.request.user,
+            action=AdminActivityLog.Action.CREATE_USER,
+            description=f"Created user: {user.email} with role {user.get_role_display()}",
+            target_user=user,
+            request=self.request
+        )
+
+    def perform_update(self, serializer):
+        """Log user updates"""
+        user = serializer.save()
+        from auth_app.models import AdminActivityLog
+        log_user_action(
+            admin_user=self.request.user,
+            action=AdminActivityLog.Action.UPDATE_USER,
+            description=f"Updated user: {user.email}",
+            target_user=user,
+            request=self.request
+        )
+
+    def perform_destroy(self, instance):
+        """Log user deletion"""
+        from auth_app.models import AdminActivityLog
+        email = instance.email
+        log_user_action(
+            admin_user=self.request.user,
+            action=AdminActivityLog.Action.DELETE_USER,
+            description=f"Deleted user: {email}",
+            target_user=instance,
+            request=self.request
+        )
+        instance.delete()
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def profile(self, request):
@@ -83,11 +139,137 @@ class UserViewSet(viewsets.ModelViewSet):
                 {"error": "Invalid role value"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        old_role = user.role
         user.role = role_value
         user.save()
+        
+        # Log role change
+        from auth_app.models import AdminActivityLog
+        log_user_action(
+            admin_user=request.user,
+            action=AdminActivityLog.Action.CHANGE_ROLE,
+            description=f"Changed role for {user.email} from {User.Role(old_role).label} to {user.get_role_display()}",
+            target_user=user,
+            request=request
+        )
+        
         return Response(
             {
                 "message": f"User role changed to {user.get_role_display()}",
                 "user": UserSerializer(user).data,
             }
         )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, CanManageUsers],
+    )
+    def reset_password(self, request, pk=None):
+        """Reset user's password (Admin only)"""
+        user = self.get_object()
+        new_password = request.data.get("new_password")
+
+        if not new_password:
+            return Response(
+                {"error": "new_password is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(new_password) < 8:
+            return Response(
+                {"error": "Password must be at least 8 characters long"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            user.set_password(new_password)
+            user.save()
+            
+            # Log password reset
+            from auth_app.models import AdminActivityLog
+            log_user_action(
+                admin_user=request.user,
+                action=AdminActivityLog.Action.RESET_PASSWORD,
+                description=f"Reset password for {user.email}",
+                target_user=user,
+                request=request
+            )
+
+        return Response({
+            "message": f"Password reset successfully for {user.email}"
+        }, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, CanManageUsers],
+    )
+    def activate(self, request, pk=None):
+        """Activate user account (Admin only)"""
+        user = self.get_object()
+        
+        if user.is_active:
+            return Response(
+                {"message": "User is already active"},
+                status=status.HTTP_200_OK
+            )
+
+        user.is_active = True
+        user.save()
+        
+        # Log activation
+        from auth_app.models import AdminActivityLog
+        log_user_action(
+            admin_user=request.user,
+            action=AdminActivityLog.Action.ACTIVATE_USER,
+            description=f"Activated user: {user.email}",
+            target_user=user,
+            request=request
+        )
+
+        return Response({
+            "message": f"User {user.email} activated successfully",
+            "user": UserSerializer(user).data
+        }, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsAuthenticated, CanManageUsers],
+    )
+    def deactivate(self, request, pk=None):
+        """Deactivate user account (Admin only)"""
+        user = self.get_object()
+        
+        # Prevent admin from deactivating themselves
+        if user.id == request.user.id:
+            return Response(
+                {"error": "You cannot deactivate your own account"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not user.is_active:
+            return Response(
+                {"message": "User is already inactive"},
+                status=status.HTTP_200_OK
+            )
+
+        user.is_active = False
+        user.save()
+        
+        # Log deactivation
+        from auth_app.models import AdminActivityLog
+        log_user_action(
+            admin_user=request.user,
+            action=AdminActivityLog.Action.DEACTIVATE_USER,
+            description=f"Deactivated user: {user.email}",
+            target_user=user,
+            request=request
+        )
+
+        return Response({
+            "message": f"User {user.email} deactivated successfully",
+            "user": UserSerializer(user).data
+        }, status=status.HTTP_200_OK)
+

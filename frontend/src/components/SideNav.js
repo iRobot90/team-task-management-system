@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_ROLES } from '../utils/constants';
-import { 
-  LayoutDashboard, 
-  CheckSquare, 
-  BarChart3, 
-  User, 
+import {
+  LayoutDashboard,
+  CheckSquare,
+  BarChart3,
+  User,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import './SideNav.css';
 
@@ -19,40 +20,46 @@ const SideNav = ({ isCollapsed = false, onToggle }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { 
-      to: '/dashboard', 
-      label: 'Dashboard', 
+    {
+      to: '/dashboard',
+      label: 'Dashboard',
       icon: LayoutDashboard,
-      roles: [USER_ROLES.ADMIN, USER_ROLES.MANAGER, USER_ROLES.MEMBER]
+      roles: [USER_ROLES.MANAGER, USER_ROLES.MEMBER]
     },
-    { 
-      to: '/tasks', 
-      label: 'Tasks', 
+    {
+      to: '/tasks',
+      label: 'Tasks',
       icon: CheckSquare,
-      roles: [USER_ROLES.ADMIN, USER_ROLES.MANAGER, USER_ROLES.MEMBER]
+      roles: [USER_ROLES.MANAGER, USER_ROLES.MEMBER]
     },
-    { 
-      to: '/my-performance', 
-      label: 'My Performance', 
+    {
+      to: '/admin',
+      label: 'Control Panel',
+      icon: Shield,
+      roles: [USER_ROLES.ADMIN]
+    },
+    {
+      to: '/my-performance',
+      label: 'My Performance',
       icon: BarChart3,
       roles: [USER_ROLES.MEMBER]
     },
-    { 
-      to: '/team-performance', 
-      label: 'Team Performance', 
+    {
+      to: '/team-performance',
+      label: 'Team Performance',
       icon: BarChart3,
       roles: [USER_ROLES.ADMIN, USER_ROLES.MANAGER]
     },
-    { 
-      to: '/profile', 
-      label: 'Profile', 
+    {
+      to: '/profile',
+      label: 'Profile',
       icon: User,
       roles: [USER_ROLES.ADMIN, USER_ROLES.MANAGER, USER_ROLES.MEMBER]
     }
   ];
 
   // Filter nav items based on user role
-  const filteredNavItems = navItems.filter(item => 
+  const filteredNavItems = navItems.filter(item =>
     user && item.roles.includes(user.role)
   );
 
@@ -97,7 +104,7 @@ const SideNav = ({ isCollapsed = false, onToggle }) => {
   return (
     <>
       {/* Mobile menu button */}
-      <button 
+      <button
         className="mobile-menu-toggle"
         onClick={toggleMobileMenu}
         aria-label="Toggle navigation"
@@ -117,7 +124,7 @@ const SideNav = ({ isCollapsed = false, onToggle }) => {
             <span className="brand-icon">TT</span>
             {!isCollapsed && <span className="brand-text">TTMS</span>}
           </div>
-          <button 
+          <button
             className="collapse-toggle"
             onClick={toggleCollapse}
             aria-label="Toggle sidebar"
@@ -151,7 +158,7 @@ const SideNav = ({ isCollapsed = false, onToggle }) => {
           {filteredNavItems.map((item) => {
             const active = isActive(item.to);
             const Icon = item.icon;
-            
+
             return (
               <NavLink
                 key={item.to}
@@ -173,7 +180,7 @@ const SideNav = ({ isCollapsed = false, onToggle }) => {
 
         {/* Footer */}
         <div className="sidenav-footer">
-          <button 
+          <button
             className="logout-btn"
             onClick={handleLogout}
             title={isCollapsed ? 'Logout' : ''}

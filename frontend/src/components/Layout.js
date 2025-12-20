@@ -31,12 +31,16 @@ const Layout = ({ children }) => {
       <nav className="navbar navbar-shifted">
         {/* Left - Brand */}
         <div className="navbar-left">
-          <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>
-            Dashboard
-          </Link>
-          <Link to="/tasks" className={`nav-link ${isActive('/tasks') ? 'active' : ''}`}>
-            Tasks
-          </Link>
+          {(user?.role === USER_ROLES.MANAGER || user?.role === USER_ROLES.MEMBER) && (
+            <>
+              <Link to="/dashboard" className={`nav-link ${isActive('/dashboard') ? 'active' : ''}`}>
+                Dashboard
+              </Link>
+              <Link to="/tasks" className={`nav-link ${isActive('/tasks') ? 'active' : ''}`}>
+                Tasks
+              </Link>
+            </>
+          )}
           {(user?.role === USER_ROLES.ADMIN || user?.role === USER_ROLES.MANAGER) && (
             <Link to="/team-performance" className={`nav-link ${isActive('/team-performance') ? 'active' : ''}`}>
               Team Performance
@@ -45,11 +49,6 @@ const Layout = ({ children }) => {
           {user?.role === USER_ROLES.MEMBER && (
             <Link to="/my-performance" className={`nav-link ${isActive('/my-performance') ? 'active' : ''}`}>
               My Performance
-            </Link>
-          )}
-          {user?.role === USER_ROLES.ADMIN && (
-            <Link to="/users" className={`nav-link ${isActive('/users') ? 'active' : ''}`}>
-              Users
             </Link>
           )}
           <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>

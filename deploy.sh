@@ -74,7 +74,7 @@ chown -R www-data:www-data $PROJECT_DIR
 
 # Initial configuration variables
 DOMAIN="jesse-test.zng.dk"
-PROTOCOL="https"
+PROTOCOL="http"
 API_URL="${PROTOCOL}://${DOMAIN}/api"
 
 
