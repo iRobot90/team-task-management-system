@@ -450,6 +450,15 @@ const AdminDashboard = () => {
     };
 
     const openEditTaskModal = (task) => {
+        // Handle both assignee as ID (from assignee field) or as object (from assignee_detail)
+        let assigneeId = '';
+        if (task.assignee_detail) {
+            assigneeId = task.assignee_detail.id;
+        } else if (task.assignee) {
+            // assignee might be just an ID string or an object
+            assigneeId = typeof task.assignee === 'object' ? task.assignee.id : task.assignee;
+        }
+
         setTaskForm({
             title: task.title,
             description: task.description || '',
@@ -457,7 +466,7 @@ const AdminDashboard = () => {
             priority: task.priority,
             due_date: task.due_date ? task.due_date.split('T')[0] : '', // Format date for input
             project: task.project ? task.project.id : '',
-            assignee: task.assignee ? task.assignee.id : ''
+            assignee: assigneeId
         });
         setIsEditingTask(true);
         setEditingTaskId(task.id);
@@ -924,7 +933,7 @@ const AdminDashboard = () => {
                                     <tr key={task.id}>
                                         <td>{task.title}</td>
                                         <td>{task.project?.name || '-'}</td>
-                                        <td>{task.assignee?.username || 'Unassigned'}</td>
+                                        <td>{task.assignee_detail?.username || 'Unassigned'}</td>
                                         <td>
                                             <span className={`status-badge status-${task.status.replace('_', '-')}`}>
                                                 {task.status.replace('_', ' ')}
