@@ -170,7 +170,7 @@
 
   .navbar {
     left: 0;
-    padding-left: 4.5rem;
+    padding-left: 60px; /* Increased to avoid overlap with hamburger */
     /* Add padding for hamburger menu */
     padding-right: 1rem;
   }
@@ -195,37 +195,5 @@
 
   .sidenav.collapsed~.layout-main {
     margin-left: 0;
-  }
-}
-
-@media (max-width: 900px) {
-  .layout-main {
-    flex-direction: column;
-  }
-
-  .navbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-    height: auto;
-    min-height: 60px;
-    padding: 1rem 2rem;
-  }
-
-  .navbar-left {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-    width: 100%;
-  }
-
-  .navbar-right {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .navbar-menu {
-    flex-wrap: wrap;
-    gap: 1rem;
   }
 }
