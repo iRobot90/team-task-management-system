@@ -432,7 +432,12 @@ const AdminDashboard = () => {
         setLoading(true);
         setError('');
 
-        const result = await updateTask(editingTaskId, taskForm);
+        // Prepare data for update - convert empty assignee to null
+        const updateData = {
+            ...taskForm,
+            assignee: taskForm.assignee === '' ? null : taskForm.assignee
+        };
+        const result = await updateTask(editingTaskId, updateData);
 
         if (result.success) {
             setSuccess('Task updated successfully!');
