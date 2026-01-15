@@ -100,6 +100,7 @@ class Notification(models.Model):
     TASK_DONE = "TASK_DONE"
     TASK_REMINDER = "TASK_REMINDER"
     TASK_COMMENTED = "TASK_COMMENTED"
+    SYSTEM_ALERT = "SYSTEM_ALERT"
 
     NOTIFICATION_TYPES = [
         (TASK_ASSIGNED, "Task assigned"),
@@ -107,11 +108,12 @@ class Notification(models.Model):
         (TASK_DONE, "Task completed"),
         (TASK_REMINDER, "Task reminder"),
         (TASK_COMMENTED, "Task commented"),
+        (SYSTEM_ALERT, "System alert"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="notifications")
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
     type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
     message = models.TextField()
     is_read = models.BooleanField(default=False)

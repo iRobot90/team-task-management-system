@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
+# Exit on error
 set -o errexit
 
-python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements.txt
+# Install dependencies
+pip install -r requirements.txt
 
-python3 manage.py collectstatic --noinput
-python3 manage.py migrate
+# Convert static asset files
+python manage.py collectstatic --no-input
+
+# Apply any outstanding database migrations
+python manage.py migrate

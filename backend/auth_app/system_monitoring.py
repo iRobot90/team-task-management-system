@@ -1,15 +1,15 @@
-"""
-System monitoring utilities for admin dashboard
-"""
 import os
 import platform
 import psutil
+import logging
 from django.db import connection
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
-from tasks.models import Task, Project
+from tasks.models import Task, Project, Notification
 from .models import AdminActivityLog, PasswordResetRequest
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -38,6 +38,10 @@ def get_system_status():
     recent_activities = AdminActivityLog.objects.filter(
         created_at__gte=last_24h
     ).count()
+
+    logger.info(f"System Status Check - Time: {timezone.now()}")
+    logger.info(f"Logins (24h): {recent_logins}")
+    logger.info(f"Total Actions (24h): {recent_activities}")
     
     pending_password_resets = PasswordResetRequest.objects.filter(
         status=PasswordResetRequest.Status.PENDING

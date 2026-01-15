@@ -179,6 +179,16 @@ def request_password_reset(request):
             token=secrets.token_urlsafe(32),
             reason=serializer.validated_data.get('reason', '')
         )
+
+        # Notify Admins
+        from tasks.models import Notification
+        admins = User.objects.filter(role=User.Role.ADMIN)
+        for admin in admins:
+            Notification.objects.create(
+                user=admin,
+                type=Notification.SYSTEM_ALERT,
+                message=f"New password reset request from {user.email}"
+            )
         
         # Log the request
         log_admin_action(
