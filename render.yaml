@@ -20,7 +20,7 @@ services:
           name: ttms-db
           property: connectionString
       - key: CORS_ALLOWED_ORIGINS
-        value: "http://localhost:3000" # Update this with your Vercel URL after deploying frontend
+        value: "https://team-task-management-system-three.vercel.app"
 
 databases:
   - name: ttms-db
