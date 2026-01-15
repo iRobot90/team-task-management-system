@@ -2,6 +2,7 @@ services:
   - type: web
     name: ttms-backend
     env: python
+    plan: free
     rootDir: backend
     buildCommand: "./build.sh"
     startCommand: "gunicorn config.wsgi:application"
