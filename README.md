@@ -265,4 +265,36 @@ Key endpoints:
 - `/api/auth/login/` - User login
 - `/api/tasks/` - Task CRUD operations
 - `/api/users/` - User management (Admin only)
+
 - `/api/roles/` - List available roles
+
+## Cloud Deployment (Free Tier)
+
+This project can be easily deployed to the free tiers of Vercel (Frontend) and Render (Backend).
+
+### 1. Prerequisites
+- GitHub Account
+- Vercel Account
+- Render Account
+
+### 2. Backend Deployment (Render)
+1. Fork/Push this repository to GitHub.
+2. Log in to [Render](https://render.com) and create a new **Blueprint**.
+3. Connect your repository. Render will automatically detect the `render.yaml` file.
+4. Click **Apply**. This will create the PostgreSQL database and the Web Service.
+5. Once deployed, copy your **Service URL** (e.g., `https://ttms-backend.onrender.com`).
+
+### 3. Frontend Deployment (Vercel)
+1. Log in to [Vercel](https://vercel.com) and create a new Project.
+2. Import your repository.
+3. Select `frontend` as the **Root Directory**.
+4. Add Environment Variable:
+   - Key: `REACT_APP_API_BASE_URL`
+   - Value: `https://YOUR-RENDER-BACKEND.onrender.com/api`
+5. Deploy.
+
+### 4. Post-Deployment Configuration
+1. Copy your Vercel URL (e.g., `https://your-app.vercel.app`).
+2. Go to Render Dashboard -> **ttms-backend** service -> **Environment**.
+3. Add variable `CORS_ALLOWED_ORIGINS` with value `https://your-app.vercel.app`.
+4. Save and Redeploy (if not automatic).
