@@ -158,5 +158,4 @@ Includes tests for: RBAC permissions, Models, API Endpoints.
   - Indexed DB fields (status, assignee).
   - React Memoization where appropriate.
 
-## License
-MIT License.
+
