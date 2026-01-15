@@ -5,9 +5,7 @@ A full-stack Task Management Web Application for small teams built with **React*
 ![Project Status](https://img.shields.io/badge/status-active-success.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
----
-
-## 🚀 Features
+## Features
 
 ### Core Management
 - **Role-Based Access Control (RBAC)**: 
@@ -33,9 +31,7 @@ A full-stack Task Management Web Application for small teams built with **React*
 - **Feedback**: Toast notifications, loading spinners, glassmorphism effects.
 - **Password Visibility**: Toggle show/hide on inputs.
 
----
-
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -44,9 +40,7 @@ A full-stack Task Management Web Application for small teams built with **React*
 | **Database** | PostgreSQL (Production), SQLite (Dev) |
 | **Utilities** | Gunicorn, Whitenoise, psutil |
 
----
-
-## 🏎 Quick Start (Local Development)
+## Quick Start (Local Development)
 
 ### Prerequisites
 - Python 3.11+
@@ -83,9 +77,7 @@ npm start
 ```
 Frontend available at: `http://localhost:3000`
 
----
-
-## ☁️ Cloud Deployment (Free Tier)
+## Cloud Deployment (Free Tier)
 
 This project is configured for easy deployment on **Vercel** (Frontend) and **Render** (Backend).
 
@@ -106,9 +98,7 @@ This project is configured for easy deployment on **Vercel** (Frontend) and **Re
 1. On Render Dashboard -> Environment.
 2. Add `CORS_ALLOWED_ORIGINS` = `https://your-frontend.vercel.app`.
 
----
-
-## 🏢 VPS Deployment (DigitalOcean/Ubuntu)
+## VPS Deployment (DigitalOcean/Ubuntu)
 
 For full control, deploy on a VPS using Nginx + Gunicorn.
 
@@ -130,9 +120,7 @@ For full control, deploy on a VPS using Nginx + Gunicorn.
    - Proxy `/api` to Gunicorn (`localhost:8000` or socket).
    - Serve Frontend static build (`npm run build`) on root `/`.
 
----
-
-## 🧪 Testing
+## Testing
 
 ### Frontend (Jest/RTL)
 ```bash
@@ -150,9 +138,7 @@ python manage.py test
 ```
 Includes tests for: RBAC permissions, Models, API Endpoints.
 
----
-
-## 🔑 Demo & Default Credentials
+## Demo & Default Credentials
 
 | Role | Email | Password | Permissions |
 |------|-------|----------|-------------|
@@ -162,9 +148,7 @@ Includes tests for: RBAC permissions, Models, API Endpoints.
 
 *Note: New registered users are "Member" by default. Admin must upgrade them.*
 
----
-
-## 🏗 Architecture Highlights
+## Architecture Highlights
 
 - **Separation of Concerns**: Decoupled Frontend (React) and Backend (Django) allow independent scaling.
 - **RESTful API**: Standardized endpoints for all resources.
@@ -174,7 +158,5 @@ Includes tests for: RBAC permissions, Models, API Endpoints.
   - Indexed DB fields (status, assignee).
   - React Memoization where appropriate.
 
----
-
-## 📜 License
+## License
 MIT License.
