@@ -2,30 +2,23 @@
 import multiprocessing
 
 # Server socket
-bind = "127.0.0.1:8000"
-backlog = 2048
+# Server socket
+bind = "0.0.0.0:10000"  # Render expects port 10000 by default or $PORT
 
 # Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"
-worker_connections = 1000
-timeout = 30
-keepalive = 2
+workers = 4  # Default to a safe number or use multiprocessing logic safely
 
-# Logging
-accesslog = "/var/log/gunicorn/ttms_access.log"
-errorlog = "/var/log/gunicorn/ttms_error.log"
+# Logging - Render captures stdout/stderr automatically
+accesslog = "-" 
+errorlog = "-"
 loglevel = "info"
-access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
 # Process naming
 proc_name = "ttms"
 
 # Server mechanics
 daemon = False
-pidfile = "/var/run/gunicorn/ttms.pid"
-user = "www-data"
-group = "www-data"
+# Remove pidfile/user/group as Render manages the process environment directly
 tmp_upload_dir = None
 
 # SSL (if needed)
